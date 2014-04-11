@@ -26,11 +26,18 @@ pure subroutine kill(phn)
 	phn%alive = .false.
 end subroutine kill
 
-real(8) pure function getcoord_phn(phn) result(coord)
+pure function getpos(phn) result(x)
 	type(phonon), intent(in) :: phn
+	real(8) :: x(3)
 	
-	coord = getcoord(phn%x)
-end function getcoord_phn
+	x = phn%x
+end function getpos
+
+!real(8) pure function getcoord_phn(phn) result(coord)
+!	type(phonon), intent(in) :: phn
+!	
+!	coord = getcoord(phn%x)
+!end function getcoord_phn
 
 type(phonon) function emitbdry() result(phn)
 	
@@ -40,13 +47,16 @@ type(phonon) function emitbdry() result(phn)
 	phn%alive = .true.
 end function emitbdry
 
-subroutine scatter(phn)
+subroutine scatter(phn, nscat)
 	type(phonon), intent(inout) :: phn
+	integer, intent(inout) :: nscat
 	
 	if (phn%tscat == 0) then
 		call drawscatterprop(phn%omega, phn%p)
 		call drawangiso(phn%dir)
 		call drawscattime(phn%tscat, phn%omega, phn%p)
+		
+		nscat = nscat + 1
 	end if
 end subroutine scatter
 
@@ -61,11 +71,8 @@ subroutine advect(phn, t)
 	deltat = phn%tscat
 	call updatestate(x, dir, deltax, t, deltat)
 	
-	if (phn%sign) then
-		call recordtime(deltat, phn%x, x)
-	else
-		call recordtime(-deltat, phn%x, x)
-	end if
+	call recordtime(phn%sign, deltat, phn%x, x)
+	call recordnum(phn%sign, t, deltat, phn%x, x)
 	
 	phn%x = x
 	phn%dir = dir

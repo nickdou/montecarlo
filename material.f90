@@ -3,14 +3,20 @@ module material
 	implicit none
 	
 	private :: c, tauconst
-	public  :: npol, omegamax, vel, dos, tau
+	public  :: npol, omegamax, settau, vel, dos, tau
 	
 	integer, parameter :: npol = 1
 	real(8), parameter :: c = 6000 ! m/s for Si
 	real(8), parameter :: omegamax = 2*pi*10d12 ! 10 THz for Si
-	real(8), parameter :: tauconst = 10d-12 ! 10 ps
+	real(8) :: tauconst = 10d-12 ! 10 ps
 	
 contains
+
+subroutine settau(const)
+	real(8), intent(in) :: const
+	
+	tauconst = const
+end subroutine settau
 
 real(8) pure function vel(omega, p)
 	real(8), intent(in) :: omega

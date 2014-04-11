@@ -1,4 +1,5 @@
 module simulation
+	use tools
 	use distributions
 	use domain
 	use particle
@@ -8,8 +9,8 @@ module simulation
 	
 contains
 
-subroutine initboxisot(nomega, nemit, ncell, length, side, tend, Teq, Thot, Tcold)
-	integer, intent(in) :: nomega, nemit, ncell
+subroutine initboxisot(nomega, nemit, ncell, ntime, length, side, tend, Teq, Thot, Tcold)
+	integer, intent(in) :: nomega, nemit, ncell, ntime
 	real(8), intent(in) :: length, side, tend, Teq, Thot, Tcold
 	type(rectbdry) :: bdry_arr(6)
 	real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
@@ -19,8 +20,8 @@ subroutine initboxisot(nomega, nemit, ncell, length, side, tend, Teq, Thot, Tcol
 	call initomega(nomega)
 	call initpropcdf(Teq)
 	
-	call setend(tend)
-	call setgrid((/0d0, 0d0, 1d0/), 0d0, length, ncell)
+	call setspatgrid((/0d0, 0d0, 1d0/), 0d0, length, ncell)
+	call settimegrid(tend, ntime)
 	
 	origin = (/0d0, 0d0, 0d0/)
 	corner = (/side, side, length/)
@@ -40,52 +41,80 @@ subroutine initboxisot(nomega, nemit, ncell, length, side, tend, Teq, Thot, Tcol
 	
 end subroutine initboxisot
 
-subroutine simulate(len)
-	integer, intent(in) :: len
-	integer :: i, nemit
+subroutine initboxperi(nomega, nemit, ncell, ntime, length, side, tend, Teq, Thot, Tcold)
+	integer, intent(in) :: nomega, nemit, ncell, ntime
+	real(8), intent(in) :: length, side, tend, Teq, Thot, Tcold
+	real(8) :: zvec(3), eye(3,3)
+	
+	call initboxisot(nomega, nemit, ncell, ntime, length, side, tend, Teq, Thot, Tcold)
+	
+	zvec = (/0d0, 0d0, length/)
+	eye = reshape((/1d0, 0d0, 0d0, 0d0, 1d0, 0d0, 0d0, 0d0, 1d0/), (/3, 3/))
+	call setpair(1, 4, eye, eye, zvec)
+	
+end subroutine initboxperi
+
+subroutine simulate(maxscat)
+	integer, intent(in) :: maxscat
+	integer :: i, nemit, nscat
 	real(8) :: t
 	type(phonon) :: phn
 	
 	nemit = sum( getemit() )
 	do i = 1, nemit
-		call showprogress(i, nemit, len)
+		call showprogress(i, nemit, min(nemit, 20))
 !		print ('(/,A,I2)'), 'Particle ', i 
 		phn = emitbdry()
-		t = 0
-		do
-			if (.not. isalive(phn)) exit
-			call scatter(phn)
+		
+		call getemittime(t)
+		nscat = 0
+		do while (isalive(phn))
 			call advect(phn, t)
+			call scatter(phn, nscat)
+			if (maxscat > 0 .and. nscat >= maxscat) then
+				call kill(phn)
+			end if
 		end do
 	end do
 end subroutine simulate
 
-subroutine showprogress(i, iend, len)
-	integer, intent(in) :: i, iend, len
-	real(8) :: x, unit
-	integer :: bars
+subroutine simulateone(maxscat, maxcoll)
+	integer, intent(in) :: maxscat, maxcoll
+	integer :: ncoll, nscat
+	real(8) :: t
+	type(phonon) :: phn
+	character(len=8), parameter :: fmt = '(ES16.8)'
+	integer, parameter :: unit = 2
 	
-	unit = dble(len)/iend
-	x = i*unit
-	bars = floor(x)
-	if ((x - bars)/unit < 0.999999) then
-		print *, nint(100*dble(i)/iend), '%  ', &
-			'[', repeat('|',bars), repeat('-',len-bars), ']'
-			
-	end if
-end subroutine showprogress
+	phn = emitbdry()
+	call inittraj( 2*maxcoll, getpos(phn) )
+	
+	t = 0
+	ncoll = 0
+	nscat = 0
+	do while (isalive(phn))
+		call advect(phn, t)
+		call scatter(phn, nscat)
+		ncoll = ncoll + 1
+		if (ncoll >= maxcoll .or. (maxscat > 0 .and. nscat >= maxscat)) then
+			call kill(phn)
+		end if
+	end do
+	
+	call writematlab( transpose(gettraj()), '(ES16.8)', 2, 'traj', 'x' )
+end subroutine simulateone
 
-subroutine printtemp(ncell)
-	integer, intent(in) :: ncell
-	real(8) :: T(ncell)
+subroutine writetemp(ncell, ntime)
+	integer, intent(in) :: ncell, ntime
+	real(8) :: T(ncell, 0:ntime)
 	
-	T = getsteadytemp()
-	open(unit=2, file='temp.m', action='write', status='replace')
-	write(2,'(A)') 'T = ['
-	write(2,'(ES15.8)') T
-	write(2,'(A)') '];'
-	write(2,'(A)') 'plot(T)'
-!	print ('(ES15.8)'), T
-end subroutine printtemp
+	if (ntime == 0) then
+		T(:,0) = getsteadytemp()
+		call writematlab(T(:,0), '(ES16.8)', 2, 'temp', 'T')
+	else
+		T = gettranstemp()
+		call writematlab(T, '(ES16.8)', 2, 'temp', 'T')
+	end if
+end subroutine writetemp
 
 end module simulation

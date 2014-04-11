@@ -9,7 +9,7 @@ module distributions
 		 energycdf_arr, fluxcdf_arr, scattercdf_arr, &
 		 calculatecdf, getomegacdf, getpolcdf, drawprop
 		
-	public  :: getnomega, getteq, fb, eb, dedT, energypdf, fluxpdf, scatterpdf, &
+	public  :: getnomega, getteq, dedT, energypdf, fluxpdf, scatterpdf, &
 		initomega, initpropcdf, getpseudoenergy, getpseudoflux, &
 		drawenergyprop, drawfluxprop, drawscatterprop, &
 		drawposlin, drawposrect, drawangiso, drawanghalf, drawscattime
@@ -34,17 +34,17 @@ real(8) pure function getteq() result(T)
 	T = Teq
 end function getteq
 
-real(8) pure function fb(omega, T)
-	real(8), intent(in) :: omega, T
-	
-	fb = 1/(exp(hbar*omega/(kb*T)) - 1)
-end function fb
-
-real(8) pure function eb(omega, T)
-	real(8), intent(in) :: omega, T
-	
-	eb = hbar*omega/(exp(hbar*omega/(kb*T)) - 1)
-end function eb
+!real(8) pure function fb(omega, T)
+!	real(8), intent(in) :: omega, T
+!	
+!	fb = 1/(exp(hbar*omega/(kb*T)) - 1)
+!end function fb
+!
+!real(8) pure function eb(omega, T)
+!	real(8), intent(in) :: omega, T
+!	
+!	eb = hbar*omega/(exp(hbar*omega/(kb*T)) - 1)
+!end function eb
 
 real(8) pure function dedT(omega, T)
 	real(8), intent(in) :: omega, T
@@ -86,7 +86,7 @@ subroutine initomega_int(n)
 	nomega = n
 	domega = omegamax/n
 	allocate( omega_arr(n) )
-	omega_arr = (/ (i*domega, i=1,n) /)
+	omega_arr = (/ ((i - 0.5)*domega, i=1,n) /)
 end subroutine initomega_int
 
 subroutine initomega_real(delta)

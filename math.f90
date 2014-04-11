@@ -157,9 +157,10 @@ end function unitvec
 
 pure function project(a, b) result(proj)
 	real(8), intent(in) :: a(3), b(3)
-	real(8) :: proj(3)
+	real(8) :: dir(3), proj(3)
 	
-	proj = dot_product(a, b)*unitvec(b)
+	dir = unitvec(b)
+	proj = dot_product(a, dir)*dir
 end function project
 
 pure function cross_product(a, b) result(c)
@@ -206,5 +207,15 @@ pure function rotmatrix(xaxis, yaxis, zaxis) result(mat)
 	mat(:,2) = yaxis
 	mat(:,3) = zaxis
 end function rotmatrix
+
+integer pure function signtoint(sign) result(pm)
+	logical, intent(in) :: sign
+	
+	if (sign) then
+		pm = 1
+	else
+		pm = -1
+	end if
+end function signtoint
 
 end module math

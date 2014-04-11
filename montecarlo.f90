@@ -8,22 +8,31 @@ program montecarlo
 	use simulation
 	implicit none
 	
-	integer :: nomega, nemit, ncell, len
-	real(8) :: length, side, tend, Teq, Thot, Tcold
+	integer :: nomega, nemit, ncell, ntime, maxscat, maxcoll
+	real(8) :: tauconst, length, side, tend, Teq, Thot, Tcold
+	
+	tauconst = 10d-12
 	
 	nomega = 1000
-	nemit = 10000000
-	ncell = 1000
-	length = 1d-6
-	side = 1d-6
-	tend = 10d-9
+	nemit = 100000
+	ncell = 100
+	ntime = 0              !zero for steady
+	length = 1d-8
+	side = 1d-8
+	tend = 100d-9
 	Teq = 300d0
 	Thot = 1d0
 	Tcold = -1d0
 	
-	len = 20
+	maxscat = 1             !zero for time limit only
+	maxcoll = 100
 	
-	call initboxisot(nomega, nemit, ncell, length, side, tend, Teq, Thot, Tcold)
-	call simulate(len)
-	call printtemp(ncell)
+	call settau(tauconst)
+	call initboxperi(nomega, nemit, ncell, ntime, length, side, tend, Teq, Thot, Tcold)
+	
+	call simulate(maxscat)
+	call writetemp(ncell, ntime)
+
+!	call simulateone(maxscat, maxcoll)
+	
 end program montecarlo
