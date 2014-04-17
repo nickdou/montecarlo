@@ -20,8 +20,11 @@ subroutine initboxisot(nomega, nemit, ncell, ntime, length, side, tend, Teq, Tho
 	call initomega(nomega)
 	call initpropcdf(Teq)
 	
-	call setspatgrid((/0d0, 0d0, 1d0/), 0d0, length, ncell)
-	call settimegrid(tend, ntime)
+	call setgrid(tend, ntime, (/0d0, 0d0, 1d0/), 0d0, length, ncell)
+	call initrecord()
+	
+!	call setspatgrid((/0d0, 0d0, 1d0/), 0d0, length, ncell)
+!	call settimegrid(tend, ntime)
 	
 	origin = (/0d0, 0d0, 0d0/)
 	corner = (/side, side, length/)
@@ -34,10 +37,14 @@ subroutine initboxisot(nomega, nemit, ncell, ntime, length, side, tend, Teq, Tho
 	bdry_arr(4) = makebdry(ISOT_BC, corner, -yvec, -xvec, Tcold)
 	bdry_arr(5) = makebdry(SPEC_BC, corner, -zvec, -yvec)
 	bdry_arr(6) = makebdry(SPEC_BC, corner, -xvec, -zvec)
-	call setbdry(bdry_arr, nemit, side**2*length)
+	call setbdry(bdry_arr, side**2*length)
+	call calculateemit(nemit)
 	
-	print ('(A12,6I10)'), 'emit_arr = ', getemit()
+	print ('(A12,ES15.8)'), 'Kn = ', tau(0d0, 1, 300d0)*vel(0d0, 1)/length
 	print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
+!	print ('(A12,ES15.8)'), 'xmax = ', hbar*omegamax/(kb*Teq)
+	print ('(A12,ES15.8)'), 'ktheory = ', calculatek(Teq)
+	print ('(A12,6I10)'), 'emit_arr = ', getemit()
 	
 end subroutine initboxisot
 
@@ -50,11 +57,13 @@ subroutine initboxperi(nomega, nemit, ncell, ntime, length, side, tend, Teq, Tho
 	
 	zvec = (/0d0, 0d0, length/)
 	eye = reshape((/1d0, 0d0, 0d0, 0d0, 1d0, 0d0, 0d0, 0d0, 1d0/), (/3, 3/))
-	call setpair(1, 4, eye, eye, zvec)
+	call setbdrypair(1, 4, eye, eye, zvec)
+	call calculateemit(nemit)
 	
 end subroutine initboxperi
 
-subroutine simulate(maxscat)
+subroutine simulate(volumetric, maxscat)
+	logical, intent(in) :: volumetric
 	integer, intent(in) :: maxscat
 	integer :: i, nemit, nscat
 	real(8) :: t
@@ -64,7 +73,7 @@ subroutine simulate(maxscat)
 	do i = 1, nemit
 		call showprogress(i, nemit, min(nemit, 20))
 !		print ('(/,A,I2)'), 'Particle ', i 
-		phn = emitbdry()
+		phn = emitbdry(volumetric)
 		
 		call getemittime(t)
 		nscat = 0
@@ -78,7 +87,8 @@ subroutine simulate(maxscat)
 	end do
 end subroutine simulate
 
-subroutine simulateone(maxscat, maxcoll)
+subroutine simulateone(volumetric, maxscat, maxcoll)
+	logical, intent(in) :: volumetric
 	integer, intent(in) :: maxscat, maxcoll
 	integer :: ncoll, nscat
 	real(8) :: t
@@ -86,7 +96,7 @@ subroutine simulateone(maxscat, maxcoll)
 	character(len=8), parameter :: fmt = '(ES16.8)'
 	integer, parameter :: unit = 2
 	
-	phn = emitbdry()
+	phn = emitbdry(volumetric)
 	call inittraj( 2*maxcoll, getpos(phn) )
 	
 	t = 0
@@ -116,5 +126,16 @@ subroutine writetemp(ncell, ntime)
 		call writematlab(T, '(ES16.8)', 2, 'temp', 'T')
 	end if
 end subroutine writetemp
+
+subroutine printresults(deltaT, length)
+	real(8), intent(in) :: deltaT, length
+	real(8) :: flux, conductivity
+	
+	flux = getflux()
+	conductivity = -flux *length/deltaT
+	
+	print ('(A,ES16.8,A)'), 'j = ', flux, ' W/m^2'
+	print ('(A,ES16.8,A)'), 'k = ', conductivity, ' W/m-K'
+end subroutine printresults
 
 end module simulation

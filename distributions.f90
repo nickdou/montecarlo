@@ -9,7 +9,7 @@ module distributions
 		 energycdf_arr, fluxcdf_arr, scattercdf_arr, &
 		 calculatecdf, getomegacdf, getpolcdf, drawprop
 		
-	public  :: getnomega, getteq, dedT, energypdf, fluxpdf, scatterpdf, &
+	public  :: getnomega, getteq, dedT, calculatek, energypdf, fluxpdf, scatterpdf, &
 		initomega, initpropcdf, getpseudoenergy, getpseudoflux, &
 		drawenergyprop, drawfluxprop, drawscatterprop, &
 		drawposlin, drawposrect, drawangiso, drawanghalf, drawscattime
@@ -34,18 +34,6 @@ real(8) pure function getteq() result(T)
 	T = Teq
 end function getteq
 
-!real(8) pure function fb(omega, T)
-!	real(8), intent(in) :: omega, T
-!	
-!	fb = 1/(exp(hbar*omega/(kb*T)) - 1)
-!end function fb
-!
-!real(8) pure function eb(omega, T)
-!	real(8), intent(in) :: omega, T
-!	
-!	eb = hbar*omega/(exp(hbar*omega/(kb*T)) - 1)
-!end function eb
-
 real(8) pure function dedT(omega, T)
 	real(8), intent(in) :: omega, T
 	real(8) :: x
@@ -57,6 +45,16 @@ real(8) pure function dedT(omega, T)
 		dedT = kb*(x/(2*sinh(x/2)))**2
 	end if
 end function dedT
+
+real(8) pure function calculatek(T) result(k)
+	real(8), intent(in) :: T
+	real(8) :: integrand(npol*nomega)
+	integer :: p, i
+	
+	integrand = (/ ((tau(omega_arr(i), p, T)*vel(omega_arr(i), p)**2*&
+		dedT(omega_arr(i), T)*dos(omega_arr(i), p), p=1,npol), i=1,nomega) /)
+	k = domega/3 * sum(integrand)
+end function calculatek
 
 real(8) pure function energypdf(omega, p, T) result(pdf)
 	real(8), intent(in) :: omega, T

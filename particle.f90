@@ -9,7 +9,7 @@ module particle
 	type phonon
 		private
 		logical :: sign, alive
-		real(8) :: omega, x(3), dir(3), tscat
+		real(8) :: omega, xinitial(3), x(3), dir(3), tscat
 		integer :: p
 	end type phonon
 contains
@@ -20,9 +20,10 @@ logical pure function isalive(phn) result(alive)
 	alive = phn%alive
 end function isalive
 
-pure subroutine kill(phn)
+subroutine kill(phn)
 	type(phonon), intent(inout) :: phn
 	
+	call addcumflux(phn%sign, phn%x - phn%xinitial)
 	phn%alive = .false.
 end subroutine kill
 
@@ -33,17 +34,13 @@ pure function getpos(phn) result(x)
 	x = phn%x
 end function getpos
 
-!real(8) pure function getcoord_phn(phn) result(coord)
-!	type(phonon), intent(in) :: phn
-!	
-!	coord = getcoord(phn%x)
-!end function getcoord_phn
-
-type(phonon) function emitbdry() result(phn)
+type(phonon) function emitbdry(volumetric) result(phn)
+	logical, intent(in) :: volumetric
 	
 	call drawfluxprop(phn%omega, phn%p)
-	call getemitstate(phn%x, phn%dir, phn%sign)
+	call getemitstate(phn%x, phn%dir, phn%sign, volumetric)
 	call drawscattime(phn%tscat, phn%omega, phn%p)
+	phn%xinitial = phn%x
 	phn%alive = .true.
 end function emitbdry
 
@@ -64,21 +61,30 @@ subroutine advect(phn, t)
 	type(phonon), intent(inout) :: phn
 	real(8), intent(inout) :: t
 	real(8) :: x(3), dir(3), deltax, deltat
+	integer :: ind, bc
 	
 	x = phn%x
 	dir = phn%dir
 	deltax = vel(phn%omega, phn%p)*phn%tscat
 	deltat = phn%tscat
-	call updatestate(x, dir, deltax, t, deltat)
+	
+	call updatestate(ind, bc, x, dir, deltax, t, deltat)
+	call appendtraj(x)
 	
 	call recordtime(phn%sign, deltat, phn%x, x)
 	call recordnum(phn%sign, t, deltat, phn%x, x)
+	
+	call applybc(ind, bc, x, dir)
+	if (bc == PERI_BC) then
+		call appendtraj(x)
+		call addcumflux(phn%sign, ind)
+	end if
 	
 	phn%x = x
 	phn%dir = dir
 	phn%tscat = phn%tscat - deltat
 	
-	if (all(phn%dir == 0, 1)) then
+	if (all(dir == 0, 1)) then
 		call kill(phn)
 	end if
 end subroutine advect

@@ -14,6 +14,7 @@ module tools
 	interface writematlab
 		module procedure writematlab1, writematlab2
 	end interface writematlab
+
 contains
 
 function makearray1(m) result(array)
