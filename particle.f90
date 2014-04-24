@@ -23,7 +23,7 @@ end function isalive
 subroutine kill(phn)
 	type(phonon), intent(inout) :: phn
 	
-	call addcumflux(phn%sign, phn%x - phn%xinitial)
+	call addcumdisp(phn%sign, phn%x - phn%xinitial)
 	phn%alive = .false.
 end subroutine kill
 
@@ -34,15 +34,13 @@ pure function getpos(phn) result(x)
 	x = phn%x
 end function getpos
 
-type(phonon) function emitbdry(volumetric) result(phn)
-	logical, intent(in) :: volumetric
-	
+type(phonon) function emit() result(phn)
 	call drawfluxprop(phn%omega, phn%p)
-	call getemitstate(phn%x, phn%dir, phn%sign, volumetric)
+	call drawemitstate(phn%x, phn%dir, phn%sign)
 	call drawscattime(phn%tscat, phn%omega, phn%p)
 	phn%xinitial = phn%x
 	phn%alive = .true.
-end function emitbdry
+end function emit
 
 subroutine scatter(phn, nscat)
 	type(phonon), intent(inout) :: phn
@@ -72,12 +70,13 @@ subroutine advect(phn, t)
 	call appendtraj(x)
 	
 	call recordtime(phn%sign, deltat, phn%x, x)
-	call recordnum(phn%sign, t, deltat, phn%x, x)
+	call recorddisp(phn%sign, phn%x, x)
+	call recordloc(phn%sign, t, deltat, phn%x, x)
 	
 	call applybc(ind, bc, x, dir)
 	if (bc == PERI_BC) then
 		call appendtraj(x)
-		call addcumflux(phn%sign, ind)
+		call addcumdisp(phn%sign, ind)
 	end if
 	
 	phn%x = x

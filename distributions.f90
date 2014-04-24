@@ -4,15 +4,11 @@ module distributions
 	use material
 	implicit none
 	
-	private :: nomega, domega, omega_arr, Teq, &
-		 energypdf_arr, fluxpdf_arr, scatterpdf_arr, &
-		 energycdf_arr, fluxcdf_arr, scattercdf_arr, &
-		 calculatecdf, getomegacdf, getpolcdf, drawprop
-		
+	private	
 	public  :: getnomega, getteq, dedT, calculatek, energypdf, fluxpdf, scatterpdf, &
 		initomega, initpropcdf, getpseudoenergy, getpseudoflux, &
 		drawenergyprop, drawfluxprop, drawscatterprop, &
-		drawposlin, drawposrect, drawangiso, drawanghalf, drawscattime
+		drawposrect, drawangiso, drawanghalf, drawscattime
 	
 	interface initomega
 		module procedure initomega_int, initomega_real
@@ -176,15 +172,6 @@ subroutine drawscatterprop(omega, p)
 	
 	call drawprop(omega, p, scattercdf_arr)
 end subroutine drawscatterprop
-
-subroutine drawposlin(pos)
-	real(8), intent(out) :: pos(3)
-	real(8) :: r
-	
-	pos = 0
-	call random_number(r)
-	pos(3) = r
-end subroutine drawposlin
 
 subroutine drawposrect(pos)
 	real(8), intent(out) :: pos(3)

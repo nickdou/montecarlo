@@ -2,103 +2,98 @@ module domain
 	use math
 	use distributions
 	implicit none
+
+	private
+	public  :: SPEC_BC, DIFF_BC, ISOT_BC, PERI_BC, axis, rectbdry, &
+		makeaxis, setgrid, initrecord, inittraj, appendtraj, gettraj, &
+		makebdry, setbdry, setbdrypair, calculateemit, setvolumetric, getemit, geteeff, &
+		drawemittime, drawemitstate, updatestate, applybc, &
+		recordtime, recorddisp, recordloc, addcumdisp, &
+		getsteadytemp, gettranstemp, getflux, getgridflux
 	
-	private :: tend, tstep, ntime, gridnorm, gridloc, cellsize, ncell, nbdry, nemit, &
-		emitind, Eeff, volume, gridtime_arr, incgridtime, gridnum_arr, cumflux, &
-		bdry_arr, emit_arr, getcoll, ntraj, maxtraj, trajectory, &
-		addcumflux_real, addcumflux_int
-	public  :: rectbdry, setgrid, initrecord, getcoord, getxind, coordtoind, gettind, &
-		makebdry, setbdry, setbdrypair, getemit, geteeff, getemittime, getemitstate, &
-		updatestate, recordtime, recordnum, getsteadytemp, inittraj, appendtraj, gettraj, &
-		addcumflux, getflux
+	type axis
+		private
+		integer :: n
+		real(8) :: dir(3), lo, hi, h
+	end type axis
 	
 	type rectbdry
 		private
 		integer :: bc, pair
 		real(8) :: o(3), n(3), loc, dx, dy, area, rot(3,3), &
-			temp, pairrot(3,3), pairmv(3)
+			temp, pairmv(3)
 	end type rectbdry
 	
-	interface addcumflux
-		module procedure addcumflux_real, addcumflux_int
-	end interface addcumflux
+	interface addcumdisp
+		module procedure addcumdisp_real, addcumdisp_int
+	end interface addcumdisp
 	
 	integer, parameter :: SPEC_BC = 1, &
 	                      DIFF_BC = 2, &
 	                      ISOT_BC = 3, &
 	                      PERI_BC = 4
 	
-	real(8) :: tend, tstep, gridnorm(3), gridloc, cellsize, Eeff, volume, cumflux
+	real(8) :: tend, tstep, flow(3), Eeff, volume, cumdisp
 	integer :: ntime, ncell, nbdry, nemit, emitind, ntraj, maxtraj
+	logical :: gridflux, volumetric
+	type(axis) :: grid, vgen
 	real(8), allocatable :: trajectory(:,:)
-	real(8), allocatable :: gridtime_arr(:)
-	integer, allocatable :: gridnum_arr(:,:)
+	real(8), allocatable :: gridtime_arr(:), griddisp_arr(:)
+	integer, allocatable :: gridloc_arr(:,:)
 	type(rectbdry), allocatable :: bdry_arr(:)
 	integer, allocatable :: emit_arr(:)
 
 contains
 
-!subroutine setend(t)
-!	real(8), intent(in) :: t
-!	
-!	tend = t
-!end subroutine setend
-!
-!subroutine setspatgrid(norm, lower, upper, num)
-!	real(8), intent(in) :: norm(3), lower, upper
-!	integer, intent(in) :: num
-!	
-!	gridnorm = norm
-!	gridloc = lower
-!	ncell = num
-!	cellsize = (upper - lower)/num
-!	
-!	cumflux = 0
-!	
-!	allocate( gridtime_arr(num) )
-!	gridtime_arr = 0
-!end subroutine setspatgrid
-!
-!subroutine settimegrid(t, num)
-!	real(8), intent(in) :: t
-!	integer, intent(in) :: num
-!	
-!	tend = t
-!	ntime = num
-!	
-!	if (num /= 0) then
-!		tstep = t/num
-!	
-!		allocate( gridnum_arr(ncell, 0:num) )
-!		gridnum_arr = 0
-!	end if
-!end subroutine settimegrid
+type(axis) pure function makeaxis(dir, lo, hi, n) result(ax)
+	real(8), intent(in) :: dir(3), lo, hi
+	integer, intent(in) :: n
+	
+	ax%dir = dir
+	ax%lo = lo
+	ax%hi = hi
+	ax%n = n
+	if (n /= 0) then
+		ax%h = (hi - lo)/n
+	else
+		ax%h = 0
+	end if
+end function makeaxis
 
-subroutine setgrid(t, tnum, norm, lower, upper, xnum)
-	real(8), intent(in) :: t, norm(3), lower, upper
-	integer, intent(in) :: tnum, xnum
+subroutine setgrid(t, nt, ax)
+	real(8), intent(in) :: t
+	integer, intent(in) :: nt
+	type(axis), intent(in) :: ax
 	
 	tend = t
-	ntime = tnum
+	ntime = nt
 	
-	gridnorm = norm
-	gridloc = lower
-	ncell = xnum
-	cellsize = (upper - lower)/xnum
+	grid = ax
+	ncell = ax%n
 end subroutine setgrid
 
-subroutine initrecord()
-	if (ntime /= 0) then
+subroutine initrecord(gf, dir)
+	logical, intent(in) :: gf
+	real(8), intent(in) :: dir(3)
+	
+	if (ntime == 0) then
+		allocate( gridtime_arr(ncell) )
+		gridtime_arr = 0
+	else
 		tstep = tend/ntime
 		
-		allocate( gridnum_arr(ncell, 0:ntime) )
-		gridnum_arr = 0
+		allocate( gridloc_arr(ncell, 0:ntime) )
+		gridloc_arr = 0
 	end if
 	
-	cumflux = 0
-	
-	allocate( gridtime_arr(ncell) )
-	gridtime_arr = 0
+	gridflux = gf
+	flow = dir
+	if (gf) then
+		allocate( griddisp_arr(ncell) )
+		griddisp_arr = 0
+	else
+		cumdisp = 0
+	end if
 end subroutine initrecord
 
 subroutine inittraj(num, pos)
@@ -133,7 +128,7 @@ end function gettraj
 real(8) pure function getcoord(pos) result(coord)
 	real(8), intent(in) :: pos(3)
 	
-	coord = (dot_product(pos, gridnorm) - gridloc)/cellsize
+	coord = (dot_product(pos, grid%dir) - grid%lo)/grid%h
 end function getcoord
 
 integer pure function coordtoind(coord) result(ind)
@@ -195,10 +190,10 @@ subroutine setbdry(arr, vol)
 	volume = vol
 end subroutine setbdry
 
-subroutine setbdrypair(ind1, ind2, rot1, rot2, mv)
+subroutine setbdrypair(ind1, ind2, mv)
 ! TODO: check that rot2 = inv(rot1) or calculate one from the other
 	integer, intent(in) :: ind1, ind2
-	real(8), intent(in) :: rot1(3,3), rot2(3,3), mv(3)
+	real(8), intent(in) :: mv(3)
 	real(8) :: temp1, temp2
 	
 	temp1 = bdry_arr(ind1)%temp
@@ -206,13 +201,11 @@ subroutine setbdrypair(ind1, ind2, rot1, rot2, mv)
 	
 	bdry_arr(ind1)%bc = PERI_BC
 	bdry_arr(ind1)%pair = ind2
-	bdry_arr(ind1)%pairrot = rot1
 	bdry_arr(ind1)%pairmv = mv
 	bdry_arr(ind1)%temp = temp1 - temp2
 	
 	bdry_arr(ind2)%bc = PERI_BC
 	bdry_arr(ind2)%pair = ind1
-	bdry_arr(ind2)%pairrot = rot2
 	bdry_arr(ind2)%pairmv = -mv
 	bdry_arr(ind2)%temp = temp2 - temp1
 end subroutine setbdrypair
@@ -249,7 +242,17 @@ real(8) pure function geteeff() result(E)
 	E = Eeff
 end function geteeff
 
-subroutine getemittime(time)
+subroutine setvolumetric(vol, ax)
+	logical, intent(in) :: vol
+	type(axis), intent(in), optional :: ax
+	
+	volumetric = vol
+	if (vol) then
+		vgen = ax
+	end if
+end subroutine setvolumetric
+
+subroutine drawemittime(time)
 	real(8), intent(out) :: time
 	real(8) :: r
 	
@@ -259,14 +262,13 @@ subroutine getemittime(time)
 		call random_number(r)
 		time = r*tend
 	end if
-end subroutine getemittime
+end subroutine drawemittime
 
-subroutine getemitstate(pos, dir, sign, volumetric)
+subroutine drawemitstate(pos, dir, sign)
 	real(8), intent(out) :: pos(3), dir(3)
 	logical, intent(out) :: sign
-	logical, intent(in) :: volumetric
 	integer :: ind
-	real(8) :: lin(3)
+	real(8) :: r
 	
 	if (nemit > 0) then
 		do
@@ -284,9 +286,9 @@ subroutine getemitstate(pos, dir, sign, volumetric)
 		pos = bdry_arr(emitind)%o + matmul(bdry_arr(emitind)%rot, pos)
 		
 		if (volumetric) then
-			call drawposlin(lin)
-			pos = pos - project(pos, gridnorm)
-			pos = pos + (gridloc + ncell*cellsize*lin(3))*gridnorm
+			call random_number(r)
+			pos = pos - project(pos, vgen%dir)
+			pos = pos + ((1-r)*vgen%lo + r*vgen%hi) * vgen%dir
 		end if
 		
 		call drawanghalf(dir)
@@ -294,7 +296,7 @@ subroutine getemitstate(pos, dir, sign, volumetric)
 		
 		sign = (bdry_arr(emitind)%temp >= 0)
 	end if
-end subroutine getemitstate
+end subroutine drawemitstate
 
 pure subroutine getcoll(pierced, coll, pos1, pos2, dx, dy)
 	real(8), intent(in) :: pos1(3), pos2(3), dx, dy
@@ -375,61 +377,121 @@ subroutine applybc(ind, bc, x, dir)
 			dir = 0
 		case (PERI_BC)
 			x = x + bdry_arr(ind)%pairmv
-			dir = matmul(bdry_arr(ind)%pairrot, dir)
 		end select
 	end if
 end subroutine applybc
 
-subroutine incgridtime(time, ind1, ind2)
-	real(8), intent(in) :: time
+!subroutine incgridtime(time, ind1, ind2)
+!	real(8), intent(in) :: time
+!	integer, intent(in) :: ind1
+!	integer, intent(in), optional :: ind2
+!	
+!	if (present(ind2)) then
+!		if (ind1 <= ind2) then
+!			gridtime_arr(ind1:ind2) = gridtime_arr(ind1:ind2) + time
+!		end if
+!	else
+!		gridtime_arr(ind1) = gridtime_arr(ind1) + time
+!	end if
+!end subroutine incgridtime
+
+!subroutine recordtime(sign, deltat, xold, xnew)
+!	logical, intent(in) :: sign
+!	real(8), intent(in) :: deltat, xold(3), xnew(3)
+!	real(8) :: coordold, coordnew, dcoord
+!	integer :: pm, indold, indnew
+!	
+!	if (ntime == 0) then
+!		pm = signtoint(sign)
+!	
+!		coordold = getcoord(xold)
+!		coordnew = getcoord(xnew)
+!		dcoord = abs(coordnew - coordold)
+!	
+!		indold = coordtoind(coordold)
+!		indnew = coordtoind(coordnew)
+!	
+!		if (indold < indnew) then
+!			call incgridtime(pm*deltat*(indold - coordold)/dcoord, indold)
+!			call incgridtime(pm*deltat/dcoord, indold+1, indnew-1)
+!			call incgridtime(pm*deltat*(1 - (indnew - coordnew))/dcoord, indnew)
+!		else if (indnew < indold) then
+!			call incgridtime(pm*deltat*(indnew - coordnew)/dcoord, indnew)
+!			call incgridtime(pm*deltat/dcoord, indnew+1, indold-1)
+!			call incgridtime(pm*deltat*(1 - (indold - coordold))/dcoord, indold)
+!		else
+!			call incgridtime(pm*deltat, indold)
+!		end if
+!	
+!!		print ('(2I10)'), indold, indnew
+!!		print ('(I4,F8.3,I4)'), floor(coordold), coordold, ceiling(coordold)
+!!		print ('(2F10.3,A,2ES11.3,A,2ES11.3)'), coordold, coordnew, ' :', &
+!!			gridtime_arr(1:2), ' ... ', gridtime_arr(ncell-1:ncell)
+!	end if
+!end subroutine recordtime
+
+subroutine incgrid(cum_arr, val, ind1, ind2)
+	real(8), intent(inout) :: cum_arr(:)
+	real(8), intent(in) :: val
 	integer, intent(in) :: ind1
 	integer, intent(in), optional :: ind2
 	
 	if (present(ind2)) then
 		if (ind1 <= ind2) then
-			gridtime_arr(ind1:ind2) = gridtime_arr(ind1:ind2) + time
+			cum_arr(ind1:ind2) = cum_arr(ind1:ind2) + val
 		end if
 	else
-		gridtime_arr(ind1) = gridtime_arr(ind1) + time
+		cum_arr(ind1) = cum_arr(ind1) + val
 	end if
-end subroutine incgridtime
+end subroutine incgrid
+
+subroutine recordgrid(cum_arr, sign, delta, coordold, coordnew)
+	real(8), intent(inout) :: cum_arr(:)
+	logical, intent(in) :: sign
+	real(8), intent(in) :: delta, coordold, coordnew
+	real(8) :: dcoord
+	integer :: pm, indold, indnew
+	
+	pm = signtoint(sign)
+	dcoord = abs(coordnew - coordold)
+
+	indold = coordtoind(coordold)
+	indnew = coordtoind(coordnew)
+
+	if (indold < indnew) then
+		call incgrid(cum_arr, pm*delta*(indold - coordold)/dcoord, indold)
+		call incgrid(cum_arr, pm*delta/dcoord, indold+1, indnew-1)
+		call incgrid(cum_arr, pm*delta*(1 - (indnew - coordnew))/dcoord, indnew)
+	else if (indnew < indold) then
+		call incgrid(cum_arr, pm*delta*(indnew - coordnew)/dcoord, indnew)
+		call incgrid(cum_arr, pm*delta/dcoord, indnew+1, indold-1)
+		call incgrid(cum_arr, pm*delta*(1 - (indold - coordold))/dcoord, indold)
+	else
+		call incgrid(cum_arr, pm*delta, indold)
+	end if
+end subroutine recordgrid
 
 subroutine recordtime(sign, deltat, xold, xnew)
 	logical, intent(in) :: sign
 	real(8), intent(in) :: deltat, xold(3), xnew(3)
-	real(8) :: coordold, coordnew, dcoord
-	integer :: pm, indold, indnew
 	
 	if (ntime == 0) then
-		pm = signtoint(sign)
-	
-		coordold = getcoord(xold)
-		coordnew = getcoord(xnew)
-		dcoord = abs(coordnew - coordold)
-	
-		indold = coordtoind(coordold)
-		indnew = coordtoind(coordnew)
-	
-		if (indold < indnew) then
-			call incgridtime(pm*deltat*(indold - coordold)/dcoord, indold)
-			call incgridtime(pm*deltat/dcoord, indold+1, indnew-1)
-			call incgridtime(pm*deltat*(1 - (indnew - coordnew))/dcoord, indnew)
-		else if (indnew < indold) then
-			call incgridtime(pm*deltat*(indnew - coordnew)/dcoord, indnew)
-			call incgridtime(pm*deltat/dcoord, indnew+1, indold-1)
-			call incgridtime(pm*deltat*(1 - (indold - coordold))/dcoord, indold)
-		else
-			call incgridtime(pm*deltat, indold)
-		end if
-	
-!		print ('(2I10)'), indold, indnew
-!		print ('(I4,F8.3,I4)'), floor(coordold), coordold, ceiling(coordold)
-!		print ('(2F10.3,A,2ES11.3,A,2ES11.3)'), coordold, coordnew, ' :', &
-!			gridtime_arr(1:2), ' ... ', gridtime_arr(ncell-1:ncell)
+		call recordgrid(gridtime_arr, sign, deltat, getcoord(xold), getcoord(xnew))
 	end if
 end subroutine recordtime
 
-subroutine recordnum(sign, t, deltat, xold, xnew)
+subroutine recorddisp(sign, xold, xnew)
+	logical, intent(in) :: sign
+	real(8), intent(in) :: xold(3), xnew(3)
+	real(8) :: disp
+	
+	if (gridflux) then
+		disp = dot_product(xnew - xold, flow) 
+		call recordgrid(griddisp_arr, sign, disp, getcoord(xold), getcoord(xnew))
+	end if
+end subroutine recorddisp
+
+subroutine recordloc(sign, t, deltat, xold, xnew)
 	logical, intent(in) :: sign
 	real(8), intent(in) :: t, deltat, xold(3), xnew(3)
 	real(8) :: xi, coord
@@ -448,29 +510,33 @@ subroutine recordnum(sign, t, deltat, xold, xnew)
 			do tind = told, tnew
 				xi = (t - tind*tstep)/deltat
 				xind = getxind(xold*xi + xnew*(1 - xi))
-				gridnum_arr(xind, tind) = gridnum_arr(xind, tind) + pm
+				gridloc_arr(xind, tind) = gridloc_arr(xind, tind) + pm
 			end do
 		end if
 	end if
-end subroutine recordnum
+end subroutine recordloc
 
-subroutine addcumflux_real(sign, deltax)
+subroutine addcumdisp_real(sign, deltax)
 	logical, intent(in) :: sign
 	real(8), intent(in) :: deltax(3)
 	integer :: pm
 	
-	pm = signtoint(sign)
-	cumflux = cumflux + pm*dot_product(gridnorm, deltax)
-end subroutine addcumflux_real
+	if (.not. gridflux) then
+		pm = signtoint(sign)
+		cumdisp = cumdisp + pm*dot_product(grid%dir, deltax)
+	end if
+end subroutine addcumdisp_real
 
-subroutine addcumflux_int(sign, ind)
+subroutine addcumdisp_int(sign, ind)
 	logical, intent(in) :: sign
 	integer, intent(in) :: ind
 	integer :: pm
 	
-	pm = signtoint(sign)
-	cumflux = cumflux - pm*dot_product(gridnorm, bdry_arr(ind)%pairmv)
-end subroutine addcumflux_int
+	if (.not. gridflux) then
+		pm = signtoint(sign)
+		cumdisp = cumdisp - pm*dot_product(grid%dir, bdry_arr(ind)%pairmv)
+	end if
+end subroutine addcumdisp_int
 
 pure function getsteadytemp() result(T)
 	real(8) :: T(ncell)
@@ -481,11 +547,18 @@ end function getsteadytemp
 pure function gettranstemp() result(T)
 	real(8) :: T(ncell, 0:ntime)
 	
-	T = Eeff*ncell/(volume*getpseudoenergy()) * gridnum_arr
+	T = Eeff*ncell/(volume*getpseudoenergy()) * gridloc_arr
 end function gettranstemp
 
 real(8) pure function getflux() result(flux)
-	flux = Eeff/(volume*tend) * cumflux
+	
+	flux = Eeff/(volume*tend) * cumdisp
 end function getflux
+
+pure function getgridflux() result(flux)
+	real(8) :: flux(ncell)
+	
+	flux = Eeff*ncell/(volume*tend) * griddisp_arr
+end function getgridflux
 
 end module domain
