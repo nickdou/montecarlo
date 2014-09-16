@@ -1,4 +1,5 @@
 module math
+	use tools
 	implicit none
 	
 	public
@@ -16,7 +17,8 @@ pure function cumsum_real(arr) result(cum_arr)
 	integer :: n, l, u, i
 	
 	n = size(arr)
-	allocate( cum_arr(n) )
+!	allocate( cum_arr(n) )
+	call alloc(cum_arr, n)
 	
 	l = lbound(arr, 1)
 	u = ubound(arr, 1)
@@ -35,7 +37,8 @@ pure function cumsum_arr(arr, dim) result(cum_arr)
 	
 	m = size(arr, 1);
 	n = size(arr, 2);
-	allocate( cum_arr(m,n) )
+!	allocate( cum_arr(m,n) )
+	call alloc(cum_arr, m, n)
 	
 	if (dim == 1) then
 		l = lbound(arr, 2)
@@ -62,7 +65,8 @@ pure function pdftocdf(pdf) result(cdf)
 	integer :: n
 	
 	n = size(pdf)
-	allocate( cdf(n) )
+!	allocate( cdf(n) )
+	call alloc(cdf, n)
 	cdf = cumsum(pdf)
 	if (cdf(n) /= 0) then
 		cdf = cdf/cdf(n)

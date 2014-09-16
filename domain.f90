@@ -1,4 +1,5 @@
 module domain
+	use tools
 	use math
 	use distributions
 	implicit none
@@ -77,19 +78,23 @@ subroutine initrecord(gf, dir)
 	real(8), intent(in) :: dir(3)
 	
 	if (ntime == 0) then
-		allocate( gridtime_arr(ncell) )
+!		allocate( gridtime_arr(ncell) )
+		call alloc(gridtime_arr, ncell)
 		gridtime_arr = 0
 	else
 		tstep = tend/ntime
 		
-		allocate( gridloc_arr(ncell, 0:ntime) )
+!		allocate( gridloc_arr(ncell, 0:ntime) )
+		call alloc(gridloc_arr, ncell, ntime, (/.false.,.true./))
+		
 		gridloc_arr = 0
 	end if
 	
 	gridflux = gf
 	flow = dir
 	if (gf) then
-		allocate( griddisp_arr(ncell) )
+!		allocate( griddisp_arr(ncell) )
+		call alloc(griddisp_arr, ncell)
 		griddisp_arr = 0
 	else
 		cumdisp = 0
@@ -103,7 +108,8 @@ subroutine inittraj(num, pos)
 	maxtraj = num
 	ntraj = 0
 	
-	allocate( trajectory(3, 0:num) )
+!	allocate( trajectory(3, 0:num) )
+	call alloc(trajectory, 3, num, (/.false.,.true./))
 	trajectory(:,0) = pos
 end subroutine inittraj
 
@@ -119,9 +125,9 @@ subroutine appendtraj(pos)
 end subroutine appendtraj
 
 function gettraj() result(traj)
-	real(8), allocatable :: traj(:,:)
+	real(8) :: traj(3, 0:ntraj)
 	
-	allocate( traj(3, 0:ntraj) )
+!	allocate( traj(3, 0:ntraj) )
 	traj = trajectory(:, 0:ntraj)
 end function gettraj
 
@@ -184,6 +190,9 @@ subroutine setbdry(arr, vol)
 	real(8), intent(in) :: vol
 	
 	nbdry = size(arr)
+	if (allocated(bdry_arr)) then
+		deallocate( bdry_arr )
+	end if
 	allocate( bdry_arr(nbdry) )
 	bdry_arr = arr
 	
@@ -219,12 +228,14 @@ subroutine calculateemit(num)
 	areatemp_arr = (/(bdry_arr(i)%area*abs(bdry_arr(i)%temp), i=1,nbdry)/)
 	sumareatemp = sum(areatemp_arr)
 	
-	if (.not. allocated(emit_arr)) then
-		allocate( emit_arr(nbdry) )
-	else if (size(emit_arr, 1) /= nbdry) then
-		deallocate( emit_arr )
-		allocate( emit_arr(nbdry) )
-	end if
+!	if (.not. allocated(emit_arr)) then
+!		allocate( emit_arr(nbdry) )
+!	else if (size(emit_arr, 1) /= nbdry) then
+!		deallocate( emit_arr )
+!		allocate( emit_arr(nbdry) )
+!	end if
+	call alloc(emit_arr, nbdry)
+	
 	emit_arr = nint( num*areatemp_arr/sumareatemp )
 	nemit = sum(emit_arr)
 	emitind = 1
@@ -523,7 +534,7 @@ subroutine addcumdisp_real(sign, deltax)
 	
 	if (.not. gridflux) then
 		pm = signtoint(sign)
-		cumdisp = cumdisp + pm*dot_product(grid%dir, deltax)
+		cumdisp = cumdisp + pm*dot_product(flow, deltax)
 	end if
 end subroutine addcumdisp_real
 
@@ -534,7 +545,7 @@ subroutine addcumdisp_int(sign, ind)
 	
 	if (.not. gridflux) then
 		pm = signtoint(sign)
-		cumdisp = cumdisp - pm*dot_product(grid%dir, bdry_arr(ind)%pairmv)
+		cumdisp = cumdisp - pm*dot_product(flow, bdry_arr(ind)%pairmv)
 	end if
 end subroutine addcumdisp_int
 

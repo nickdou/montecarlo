@@ -9,8 +9,8 @@ module particle
 	type phonon
 		private
 		logical :: sign, alive
-		real(8) :: omega, xinitial(3), x(3), dir(3), tscat
-		integer :: p
+		real(8) :: x0(3), x(3), dir(3), tscat
+		integer :: p, q
 	end type phonon
 contains
 
@@ -23,7 +23,7 @@ end function isalive
 subroutine kill(phn)
 	type(phonon), intent(inout) :: phn
 	
-	call addcumdisp(phn%sign, phn%x - phn%xinitial)
+	call addcumdisp(phn%sign, phn%x - phn%x0)
 	phn%alive = .false.
 end subroutine kill
 
@@ -35,10 +35,10 @@ pure function getpos(phn) result(x)
 end function getpos
 
 type(phonon) function emit() result(phn)
-	call drawfluxprop(phn%omega, phn%p)
+	call drawfluxprop(phn%p, phn%q)
 	call drawemitstate(phn%x, phn%dir, phn%sign)
-	call drawscattime(phn%tscat, phn%omega, phn%p)
-	phn%xinitial = phn%x
+	call drawscattime(phn%tscat, phn%p, phn%q)
+	phn%x0 = phn%x
 	phn%alive = .true.
 end function emit
 
@@ -47,9 +47,9 @@ subroutine scatter(phn, nscat)
 	integer, intent(inout) :: nscat
 	
 	if (phn%tscat == 0) then
-		call drawscatterprop(phn%omega, phn%p)
+		call drawscatterprop(phn%p, phn%q)
 		call drawangiso(phn%dir)
-		call drawscattime(phn%tscat, phn%omega, phn%p)
+		call drawscattime(phn%tscat, phn%p, phn%q)
 		
 		nscat = nscat + 1
 	end if
@@ -63,7 +63,7 @@ subroutine advect(phn, t)
 	
 	x = phn%x
 	dir = phn%dir
-	deltax = vel(phn%omega, phn%p)*phn%tscat
+	deltax = vel_arr(phn%p, phn%q)*phn%tscat
 	deltat = phn%tscat
 	
 	call updatestate(ind, bc, x, dir, deltax, t, deltat)

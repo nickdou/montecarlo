@@ -11,6 +11,10 @@ module tools
 		module procedure printarray1, printarray2
 	end interface printarray
 	
+	interface alloc
+		module procedure alloc1_real, alloc1_int, alloc2_real, alloc2_int
+	end interface alloc
+	
 	interface writematlab
 		module procedure writematlab1, writematlab2
 	end interface writematlab
@@ -125,6 +129,102 @@ subroutine printarray1(vector, fmt, un, row)
 		write(unit, fmt) vector
 	end if
 end subroutine printarray1
+
+pure subroutine alloc1_real(arr, n, zero)
+	real(8), intent(inout), allocatable :: arr(:)
+	integer, intent(in) :: n
+	logical, intent(in), optional :: zero
+	
+	if (allocated(arr)) then
+		deallocate( arr )
+	end if
+	
+	if (present(zero)) then
+		if (zero) then
+			allocate( arr(0:n) )
+		else
+			allocate( arr(n) )
+		end if
+	else
+		allocate( arr(n) )
+	end if
+	
+	arr = 0
+end subroutine alloc1_real
+
+pure subroutine alloc1_int(arr, n, zero)
+	integer, intent(inout), allocatable :: arr(:)
+	integer, intent(in) :: n
+	logical, intent(in), optional :: zero
+	
+	if (allocated(arr)) then
+		deallocate( arr )
+	end if
+	
+	if (present(zero)) then
+		if (zero) then
+			allocate( arr(0:n) )
+		else
+			allocate( arr(n) )
+		end if
+	else
+		allocate( arr(n) )
+	end if
+	
+	arr = 0
+end subroutine alloc1_int
+
+pure subroutine alloc2_real(arr, m, n, zero)
+	real(8), intent(inout), allocatable :: arr(:,:)
+	integer, intent(in) :: m, n
+	logical, intent(in), optional :: zero(2)
+	
+	if (allocated(arr)) then
+		deallocate( arr )
+	end if
+	
+	if (present(zero)) then
+		if (all(zero)) then
+			allocate( arr(0:m, 0:n) )
+		else if (zero(1)) then
+			allocate( arr(0:m, n) )
+		else if (zero(2)) then
+			allocate( arr(m, 0:n) )
+		else
+			allocate( arr(m,n) )
+		end if
+	else
+		allocate( arr(m,n) )
+	end if
+	
+	arr = 0
+end subroutine alloc2_real
+
+pure subroutine alloc2_int(arr, m, n, zero)
+	integer, intent(inout), allocatable :: arr(:,:)
+	integer, intent(in) :: m, n
+	logical, intent(in), optional :: zero(2)
+	
+	if (allocated(arr)) then
+		deallocate( arr )
+	end if
+	
+	if (present(zero)) then
+		if (all(zero)) then
+			allocate( arr(0:m, 0:n) )
+		else if (zero(1)) then
+			allocate( arr(0:m, n) )
+		else if (zero(2)) then
+			allocate( arr(m, 0:n) )
+		else
+			allocate( arr(m,n) )
+		end if
+	else
+		allocate( arr(m,n) )
+	end if
+	
+	arr = 0
+end subroutine alloc2_int
 
 subroutine writematlab2(array, fmt, unit, filename, var)
 	real(8), intent(in) :: array(:,:)

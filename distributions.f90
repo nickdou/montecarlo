@@ -1,111 +1,143 @@
 module distributions
 	use constants
+	use tools
 	use math
 	use material
 	implicit none
 	
-	private	
-	public  :: getnomega, getteq, dedT, calculatek, energypdf, fluxpdf, scatterpdf, &
-		initomega, initpropcdf, getpseudoenergy, getpseudoflux, &
-		drawenergyprop, drawfluxprop, drawscatterprop, &
-		drawposrect, drawangiso, drawanghalf, drawscattime
+	public
 	
-	interface initomega
-		module procedure initomega_int, initomega_real
-	end interface initomega
+!	private	
+!	public  :: getnomega, getteq, dedT, calculatek, energypdf, fluxpdf, scatterpdf, &
+!		initomega, initpropcdf, getpseudoenergy, getpseudoflux, &
+!		drawenergyprop, drawfluxprop, drawscatterprop, &
+!		drawposrect, drawangiso, drawanghalf, drawscattime
+!	
+!	interface initomega
+!		module procedure initomega_int, initomega_real
+!	end interface initomega
 	
-	integer :: nomega
-	real(8) :: domega, Teq
-	real(8), allocatable :: omega_arr(:)
+!	integer :: nomega
+!	real(8) :: domega, Teq
+!	real(8), allocatable :: omega_arr(:)
 	real(8), allocatable ::	energypdf_arr(:,:), fluxpdf_arr(:,:), scatterpdf_arr(:,:)
 	real(8), allocatable :: energycdf_arr(:,:), fluxcdf_arr(:,:), scattercdf_arr(:,:)
 	
 contains
 
-real(8) pure function getnomega() result(n)
-	n = nomega
-end function getnomega
+!real(8) pure function getnomega() result(n)
+!	n = nomega
+!end function getnomega
+!
+!real(8) pure function getteq() result(T)
+!	T = Teq
+!end function getteq
 
-real(8) pure function getteq() result(T)
-	T = Teq
-end function getteq
+!real(8) pure function dedT(omega, T)
+!	real(8), intent(in) :: omega, T
+!	real(8) :: x
+!	
+!	x = hbar*omega/(kb*T)
+!	if (x == 0) then
+!		dedT = 0
+!	else
+!		dedT = kb*(x/(2*sinh(x/2)))**2
+!	end if
+!end function dedT
+!
+!real(8) pure function calculatek(T) result(k)
+!	real(8), intent(in) :: T
+!	real(8) :: integrand(npol*nomega)
+!	integer :: p, i
+!	
+!	integrand = (/ ((tau(omega_arr(i), p, T)*vel(omega_arr(i), p)**2*&
+!		dedT(omega_arr(i), T)*dos(omega_arr(i), p), p=1,npol), i=1,nomega) /)
+!	k = domega/3 * sum(integrand)
+!end function calculatek
 
-real(8) pure function dedT(omega, T)
-	real(8), intent(in) :: omega, T
-	real(8) :: x
+!real(8) pure function energypdf(omega, p, T) result(pdf)
+!	real(8), intent(in) :: omega, T
+!	integer, intent(in) :: p
+!	
+!	pdf = dos(omega, p)*dedT(omega, T)
+!end function energypdf
+!
+!real(8) pure function fluxpdf(omega, p, T) result(pdf)
+!	real(8), intent(in) :: omega, T
+!	integer, intent(in) :: p
+!	
+!	pdf = dos(omega, p)*vel(omega, p)*dedT(omega, T)
+!end function fluxpdf
+!
+!real(8) pure function scatterpdf(omega, p, T) result(pdf)
+!	real(8), intent(in) :: omega, T
+!	integer, intent(in) :: p
+!	
+!	pdf = dos(omega, p)/tau(omega, p, T)*dedT(omega, T)
+!end function scatterpdf
+
+subroutine initdist()
+!	allocate( energypdf_arr(npol, nomega) )
+!	allocate( fluxpdf_arr(npol, nomega) )
+!	allocate( scatterpdf_arr(npol, nomega) )
+	call alloc(energypdf_arr, npol, nomega)
+	call alloc(fluxpdf_arr, npol, nomega)
+	call alloc(scatterpdf_arr, npol, nomega)
 	
-	x = hbar*omega/(kb*T)
-	if (x == 0) then
-		dedT = 0
-	else
-		dedT = kb*(x/(2*sinh(x/2)))**2
-	end if
-end function dedT
-
-real(8) pure function calculatek(T) result(k)
-	real(8), intent(in) :: T
-	real(8) :: integrand(npol*nomega)
-	integer :: p, i
+	energypdf_arr = dedT_arr*dos_arr*domega_arr
+	fluxpdf_arr = vel_arr*dedT_arr*dos_arr*domega_arr
+	scatterpdf_arr = dedT_arr/tau_arr*dos_arr*domega_arr
 	
-	integrand = (/ ((tau(omega_arr(i), p, T)*vel(omega_arr(i), p)**2*&
-		dedT(omega_arr(i), T)*dos(omega_arr(i), p), p=1,npol), i=1,nomega) /)
-	k = domega/3 * sum(integrand)
-end function calculatek
-
-real(8) pure function energypdf(omega, p, T) result(pdf)
-	real(8), intent(in) :: omega, T
-	integer, intent(in) :: p
+	energycdf_arr = calculatecdf(energypdf_arr)
+	fluxcdf_arr = calculatecdf(fluxpdf_arr)
+	scattercdf_arr = calculatecdf(scatterpdf_arr)
 	
-	pdf = dos(omega, p)*dedT(omega, T)
-end function energypdf
+end subroutine initdist
 
-real(8) pure function fluxpdf(omega, p, T) result(pdf)
-	real(8), intent(in) :: omega, T
-	integer, intent(in) :: p
+!subroutine initomega_int(n)
+!	integer, intent(in) :: n
+!	integer :: i
+!
+!	nomega = n
+!	domega = omegamax/n
+!	allocate( omega_arr(n) )
+!	omega_arr = (/ ((i - 0.5)*domega, i=1,n) /)
+!end subroutine initomega_int
+!
+!subroutine initomega_real(delta)
+!	real(8), intent(in) :: delta
+!	
+!	call initomega_int( nint(omegamax/delta) )
+!end subroutine initomega_real
+
+!subroutine calculatecdf(pdf_arr, cdf_arr, pdf, T)
+!	real(8), external :: pdf
+!	real(8), intent(in) :: T
+!	real(8), intent(out), allocatable :: pdf_arr(:,:), cdf_arr(:,:)
+!	integer :: i, p
+!	real(8) :: flat_arr( npol*nomega )
+!	
+!	allocate( pdf_arr(npol, nomega) )
+!	flat_arr = (/((pdf(omega_arr(i), p, T), p=1,npol), i=1,nomega)/)
+!	pdf_arr = reshape(flat_arr, (/npol, nomega/))
+!	
+!	allocate( cdf_arr(0:npol, nomega) )
+!	cdf_arr(0,:) = pdftocdf( sum(pdf_arr, 1) )
+!	do i = 1,nomega
+!		cdf_arr(1:npol,i) = pdftocdf( pdf_arr(:,i) )
+!	end do
+!end subroutine calculatecdf
+
+function calculatecdf(pdf_arr) result(cdf_arr)
+	real(8), intent(in) :: pdf_arr(npol, nomega)
+	real(8) :: cdf_arr(0:npol, nomega)
+	integer :: q
 	
-	pdf = dos(omega, p)*vel(omega, p)*dedT(omega, T)
-end function fluxpdf
-
-real(8) pure function scatterpdf(omega, p, T) result(pdf)
-	real(8), intent(in) :: omega, T
-	integer, intent(in) :: p
-	
-	pdf = dos(omega, p)/tau(omega, p, T)*dedT(omega, T)
-end function scatterpdf
-
-subroutine initomega_int(n)
-	integer, intent(in) :: n
-	integer :: i
-
-	nomega = n
-	domega = omegamax/n
-	allocate( omega_arr(n) )
-	omega_arr = (/ ((i - 0.5)*domega, i=1,n) /)
-end subroutine initomega_int
-
-subroutine initomega_real(delta)
-	real(8), intent(in) :: delta
-	
-	call initomega_int( nint(omegamax/delta) )
-end subroutine initomega_real
-
-subroutine calculatecdf(pdf_arr, cdf_arr, pdf, T)
-	real(8), external :: pdf
-	real(8), intent(in) :: T
-	real(8), intent(out), allocatable :: pdf_arr(:,:), cdf_arr(:,:)
-	integer :: i, p
-	real(8) :: flat_arr( npol*nomega )
-	
-	allocate( pdf_arr(npol, nomega) )
-	flat_arr = (/((pdf(omega_arr(i), p, T), p=1,npol), i=1,nomega)/)
-	pdf_arr = reshape(flat_arr, (/npol, nomega/))
-	
-	allocate( cdf_arr(0:npol, nomega) )
 	cdf_arr(0,:) = pdftocdf( sum(pdf_arr, 1) )
-	do i = 1,nomega
-		cdf_arr(1:npol,i) = pdftocdf( pdf_arr(:,i) )
+	do q = 1,nomega
+		cdf_arr(1:npol,q) = pdftocdf( pdf_arr(:,q) )
 	end do
-end subroutine calculatecdf
+end function calculatecdf
 
 pure function getomegacdf(cdf_arr) result(omegacdf)
 	real(8), intent(in) :: cdf_arr(0:npol, nomega)
@@ -122,55 +154,49 @@ pure function getpolcdf(cdf_arr, ind) result(polcdf)
 	polcdf = cdf_arr(1:npol, ind)
 end function getpolcdf
 
-subroutine initpropcdf(T)
-	real(8), intent(in) :: T
-	
-	Teq = T
-	call calculatecdf(energypdf_arr, energycdf_arr, energypdf, T)
-	call calculatecdf(fluxpdf_arr, fluxcdf_arr, fluxpdf, T)
-	call calculatecdf(scatterpdf_arr, scattercdf_arr, scatterpdf, T)
-end subroutine initpropcdf
+!subroutine initpropcdf(T)
+!	real(8), intent(in) :: T
+!	
+!	Teq = T
+!	call calculatecdf(energypdf_arr, energycdf_arr, energypdf, T)
+!	call calculatecdf(fluxpdf_arr, fluxcdf_arr, fluxpdf, T)
+!	call calculatecdf(scatterpdf_arr, scattercdf_arr, scatterpdf, T)
+!end subroutine initpropcdf
 
 real(8) pure function getpseudoenergy() result(energy)
-	energy = domega * sum(energypdf_arr)
+	energy = sum(energypdf_arr)
 end function getpseudoenergy
 
 real(8) pure function getpseudoflux() result(flux)
-	flux = domega/4 * sum(fluxpdf_arr)
+	flux = sum(fluxpdf_arr)/4
 end function getpseudoflux
 
-subroutine drawprop(omega, p, cdf_arr)
+subroutine drawprop(p, q, cdf_arr)
 	real(8), intent(in) :: cdf_arr(:,:)
-	real(8), intent(out) :: omega
-	integer, intent(out) :: p
+	integer, intent(out) :: p, q
 	real(8) :: r(2)
-	integer :: ind
 	
 	call random_number(r)
-	ind = searchintvl( getomegacdf(cdf_arr), r(1) )
-	omega = omega_arr(ind)
-	p = searchintvl( getpolcdf(cdf_arr, ind), r(2) )
+	q = searchintvl( getomegacdf(cdf_arr), r(1) )
+	p = searchintvl( getpolcdf(cdf_arr, q), r(2) )
 end subroutine drawprop
 
-subroutine drawenergyprop(omega, p)
-	real(8), intent(out) :: omega
-	integer, intent(out) :: p
+subroutine drawenergyprop(p, q)
+	integer, intent(out) :: p, q
 	
-	call drawprop(omega, p, energycdf_arr)
+	call drawprop(p, q, energycdf_arr)
 end subroutine drawenergyprop
 
-subroutine drawfluxprop(omega, p)
-	real(8), intent(out) :: omega
-	integer, intent(out) :: p
+subroutine drawfluxprop(p, q)
+	integer, intent(out) :: p, q
 	
-	call drawprop(omega, p, fluxcdf_arr)
+	call drawprop(p, q, fluxcdf_arr)
 end subroutine drawfluxprop
 
-subroutine drawscatterprop(omega, p)
-	real(8), intent(out) :: omega
-	integer, intent(out) :: p
+subroutine drawscatterprop(p, q)
+	integer, intent(out) :: p, q
 	
-	call drawprop(omega, p, scattercdf_arr)
+	call drawprop(p, q, scattercdf_arr)
 end subroutine drawscatterprop
 
 subroutine drawposrect(pos)
@@ -202,14 +228,13 @@ subroutine drawanghalf(dir)
 	dir = angtodir((/ mu, phi /))
 end subroutine drawanghalf
 
-subroutine drawscattime(tscat, omega, p)
+subroutine drawscattime(tscat, p, q)
 	real(8), intent(out) :: tscat
-	real(8), intent(in) :: omega
-	integer, intent(in) :: p
+	integer, intent(in) :: p, q
 	real(8) :: r
 	
 	call random_number(r)
-	tscat = -tau(omega, p, Teq)*log(r)
+	tscat = -tau_arr(p,q)*log(r)
 end subroutine drawscattime
 
 end module distributions
