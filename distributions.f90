@@ -77,12 +77,12 @@ contains
 !end function scatterpdf
 
 subroutine initdist()
-!	allocate( energypdf_arr(npol, nomega) )
-!	allocate( fluxpdf_arr(npol, nomega) )
-!	allocate( scatterpdf_arr(npol, nomega) )
-	call alloc(energypdf_arr, npol, nomega)
-	call alloc(fluxpdf_arr, npol, nomega)
-	call alloc(scatterpdf_arr, npol, nomega)
+	allocate( energypdf_arr(npol, nomega) )
+	allocate( fluxpdf_arr(npol, nomega) )
+	allocate( scatterpdf_arr(npol, nomega) )
+! 	call alloc(energypdf_arr, npol, nomega)
+! 	call alloc(fluxpdf_arr, npol, nomega)
+! 	call alloc(scatterpdf_arr, npol, nomega)
 	
 	energypdf_arr = dedT_arr*dos_arr*domega_arr
 	fluxpdf_arr = vel_arr*dedT_arr*dos_arr*domega_arr

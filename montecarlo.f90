@@ -19,7 +19,7 @@ program montecarlo
 	vol = .true.
 	gf  = .true.
 	
-	nemit = 10000000
+	nemit = 1000
 	ncell = 100
 	ntime = 0              !zero for steady
 	length = 1e-6
@@ -49,7 +49,7 @@ program montecarlo
 ! 	call run(disp, relax, one, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold, maxscat, maxcoll)
 	
 	one = .false.
-	nemit = 10000000
+	nemit = 1000
 	ntime = 0
 	a = 0.8d-6
 	b = 0.2d-6

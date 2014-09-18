@@ -1,73 +1,64 @@
 module math
-	use tools
 	implicit none
 	
 	public
 	
-	interface cumsum
-		module procedure cumsum_real, cumsum_arr
-	end interface cumsum
+! 	interface cumsum
+! 		module procedure cumsum_real, cumsum_arr
+! 	end interface cumsum
 
 contains
 
-pure function cumsum_real(arr) result(cum_arr)
+pure function cumsum(arr) result(cum_arr)
 	real(8), intent(in) :: arr(:)
-	real(8), allocatable :: cum_arr(:)
+	real(8) :: cum_arr(size(arr))
 	real(8) :: cum
-	integer :: n, l, u, i
+	integer :: i
 	
-	n = size(arr)
-!	allocate( cum_arr(n) )
-	call alloc(cum_arr, n)
-	
-	l = lbound(arr, 1)
-	u = ubound(arr, 1)
 	cum = 0d0
-	do i = l,u
+	do i = 1,size(arr)
 		cum = cum + arr(i)
 		cum_arr(i) = cum
 	end do
-end function cumsum_real
+end function cumsum
 
-pure function cumsum_arr(arr, dim) result(cum_arr)
-	real(8), intent(in) :: arr(:,:)
-	integer, intent(in) :: dim
-	real(8), allocatable :: cum_arr(:,:)
-	integer :: m, n, l, u, k
-	
-	m = size(arr, 1);
-	n = size(arr, 2);
-!	allocate( cum_arr(m,n) )
-	call alloc(cum_arr, m, n)
-	
-	if (dim == 1) then
-		l = lbound(arr, 2)
-		u = ubound(arr, 2)
-		do k = l,u
-			cum_arr(:,k) = cumsum_real( arr(:,k) )
-		end do
-		
-	else if (dim == 2) then
-		l = lbound(arr, 1)
-		u = ubound(arr, 1)
-		do k = l,u
-			cum_arr(k,:) = cumsum_real( arr(k,:) )
-		end do
-		
-	else
-		cum_arr = arr
-	end if
-end function cumsum_arr
+! pure function cumsum_arr(arr, dim) result(cum_arr)
+! 	real(8), intent(in) :: arr(:,:)
+! 	integer, intent(in) :: dim
+! 	real(8), allocatable :: cum_arr(:,:)
+! 	integer :: m, n, l, u, k
+!
+! 	m = size(arr, 1);
+! 	n = size(arr, 2);
+! !	allocate( cum_arr(m,n) )
+! 	call alloc(cum_arr, m, n)
+!
+! 	if (dim == 1) then
+! 		l = lbound(arr, 2)
+! 		u = ubound(arr, 2)
+! 		do k = l,u
+! 			cum_arr(:,k) = cumsum_real( arr(:,k) )
+! 		end do
+!
+! 	else if (dim == 2) then
+! 		l = lbound(arr, 1)
+! 		u = ubound(arr, 1)
+! 		do k = l,u
+! 			cum_arr(k,:) = cumsum_real( arr(k,:) )
+! 		end do
+!
+! 	else
+! 		cum_arr = arr
+! 	end if
+! end function cumsum_arr
 
 pure function pdftocdf(pdf) result(cdf)
 	real(8), intent(in) :: pdf(:)
-	real(8), allocatable :: cdf(:)
+	real(8) :: cdf(size(pdf))
 	integer :: n
 	
-	n = size(pdf)
-!	allocate( cdf(n) )
-	call alloc(cdf, n)
 	cdf = cumsum(pdf)
+	n = size(cdf)
 	if (cdf(n) /= 0) then
 		cdf = cdf/cdf(n)
 	end if
@@ -76,10 +67,10 @@ end function pdftocdf
 integer pure function searchintvl(arr, val) result(ind)
 	real(8), intent(in) :: arr(:)
 	real(8), intent(in) :: val
-	integer :: low, high, mid
+	integer :: low, mid, high
 	
-	low = lbound(arr, 1)
-	high = ubound(arr, 1)
+	low = 1
+	high = size(arr)
 	do while (low < high)
 		mid = (low + high)/2
 		if (arr(mid) > val) then
@@ -103,19 +94,19 @@ pure function unitvec(vec)
 	real(8) :: norm
 	
 	norm = normtwo(vec)
+	
+	unitvec = vec
 	if (norm /= 0) then
 		unitvec = vec / norm
-	else
-		unitvec = vec
 	end if
 end function unitvec
 
-pure function project(a, b) result(proj)
-	real(8), intent(in) :: a(3), b(3)
-	real(8) :: dir(3), proj(3)
+pure function project(vec, dir) result(proj)
+	real(8), intent(in) :: vec(3), dir(3)
+	real(8) :: unit(3), proj(3)
 	
-	dir = unitvec(b)
-	proj = dot_product(a, dir)*dir
+	unit = unitvec(dir)
+	proj = dot_product(vec, unit)*unit
 end function project
 
 pure function cross_product(a, b) result(c)
@@ -129,12 +120,14 @@ end function cross_product
 
 pure function angtodir(ang) result(dir)
 	real(8), intent(in) :: ang(2)
-	real(8) :: mu, lambda, phi, dir(3)
+	real(8) :: costheta, sintheta, phi
+	real(8) :: dir(3)
 	
-	mu = ang(1)
-	lambda = sqrt(1 - mu**2)
+	costheta = ang(1)
+	sintheta = sqrt(1 - costheta**2)
 	phi = ang(2)
-	dir = (/ lambda*cos(phi), lambda*sin(phi), mu /)
+	
+	dir = (/ sintheta*cos(phi), sintheta*sin(phi), costheta /)
 end function angtodir
 
 pure function dirtoang(dir) result(ang)
@@ -145,6 +138,7 @@ pure function dirtoang(dir) result(ang)
 	y = dir(2)
 	z = dir(3)
 	r = normtwo(dir)
+	
 	if (r == 0 .or. r == z) then
 		ang = (/ 1, 0 /)
 	else if (r == -z) then

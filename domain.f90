@@ -78,14 +78,14 @@ subroutine initrecord(gf, dir)
 	real(8), intent(in) :: dir(3)
 	
 	if (ntime == 0) then
-!		allocate( gridtime_arr(ncell) )
-		call alloc(gridtime_arr, ncell)
+		allocate( gridtime_arr(ncell) )
+! 		call alloc(gridtime_arr, ncell)
 		gridtime_arr = 0
 	else
 		tstep = tend/ntime
 		
-!		allocate( gridloc_arr(ncell, 0:ntime) )
-		call alloc(gridloc_arr, ncell, ntime, (/.false.,.true./))
+		allocate( gridloc_arr(ncell, 0:ntime) )
+! 		call alloc(gridloc_arr, ncell, ntime, (/.false.,.true./))
 		
 		gridloc_arr = 0
 	end if
@@ -93,8 +93,8 @@ subroutine initrecord(gf, dir)
 	gridflux = gf
 	flow = dir
 	if (gf) then
-!		allocate( griddisp_arr(ncell) )
-		call alloc(griddisp_arr, ncell)
+		allocate( griddisp_arr(ncell) )
+! 		call alloc(griddisp_arr, ncell)
 		griddisp_arr = 0
 	else
 		cumdisp = 0
@@ -108,8 +108,8 @@ subroutine inittraj(num, pos)
 	maxtraj = num
 	ntraj = 0
 	
-!	allocate( trajectory(3, 0:num) )
-	call alloc(trajectory, 3, num, (/.false.,.true./))
+	allocate( trajectory(3, 0:num) )
+! 	call alloc(trajectory, 3, num, (/.false.,.true./))
 	trajectory(:,0) = pos
 end subroutine inittraj
 
@@ -127,7 +127,7 @@ end subroutine appendtraj
 function gettraj() result(traj)
 	real(8) :: traj(3, 0:ntraj)
 	
-!	allocate( traj(3, 0:ntraj) )
+! 	allocate( traj(3, 0:ntraj) )
 	traj = trajectory(:, 0:ntraj)
 end function gettraj
 
@@ -234,7 +234,8 @@ subroutine calculateemit(num)
 !		deallocate( emit_arr )
 !		allocate( emit_arr(nbdry) )
 !	end if
-	call alloc(emit_arr, nbdry)
+	allocate( emit_arr(nbdry) )
+! 	call alloc(emit_arr, nbdry)
 	
 	emit_arr = nint( num*areatemp_arr/sumareatemp )
 	nemit = sum(emit_arr)

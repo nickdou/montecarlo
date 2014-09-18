@@ -3,17 +3,17 @@ module tools
 	
 	public
 	
-	interface makearray
-		procedure makearray1, makearray2
-	end interface makearray
+! 	interface zeros
+! 		module procedure zeros1, zeros2
+! 	end interface zeros
 	
 	interface printarray
 		module procedure printarray1, printarray2
 	end interface printarray
 	
-	interface alloc
-		module procedure alloc1_real, alloc1_int, alloc2_real, alloc2_int
-	end interface alloc
+! 	interface alloc
+! 		module procedure alloc1_real, alloc1_int, alloc2_real, alloc2_int
+! 	end interface alloc
 	
 	interface writematlab
 		module procedure writematlab1, writematlab2
@@ -31,7 +31,7 @@ subroutine initrand()
 	call random_seed(size = n)
 	allocate(seed(n))
 	! First try if the OS provides a random number generator
-	open(newunit=un, file="/dev/urandom", access="stream", &
+	open(unit=un, file="/dev/urandom", access="stream", &
 		 form="unformatted", action="read", status="old", iostat=istat)
 	if (istat == 0) then
 	   read(un) seed
@@ -70,35 +70,33 @@ subroutine initrand()
 	call random_seed(put=seed)
 end subroutine initrand
 
-function makearray1(m) result(array)
-	integer, intent(in) :: m
-	real(8) :: array(m)
-	integer :: i
-	
-	array = (/(i, i=1,m)/)
-end function makearray1
-
-function makearray2(m, n) result(array)
-	integer, intent(in) :: m, n
-	real(8) :: array(m, n)
-	
-	array = reshape(makearray1(m*n), (/m, n/))
-end function makearray2
+! function zeros1(m) result(array)
+! 	integer, intent(in) :: m
+! 	real(8) :: array(m)
+! 	integer :: i
+!
+! 	array = (/(0d0, i=1,m)/)
+! end function zeros1
+!
+! function zeros2(m, n) result(array)
+! 	integer, intent(in) :: m, n
+! 	real(8) :: array(m, n)
+!
+! 	array = reshape(zeros1(m*n), (/m, n/))
+! end function zeros2
 
 subroutine printarray2(array, fmt, un)
 	real(8), intent(in) :: array(:,:)
 	character(len=*), intent(in) :: fmt
 	integer, intent(in), optional :: un
-	integer :: unit, i, j
+	integer :: i, j, unit = 6
 	
 	if (present(un)) then
 		unit = un
-	else
-		unit = 6
 	end if
 	
-	do i = 1,size(array, 1)
-		do j = 1,size(array, 2)
+	do i = 1, size(array,1)
+		do j = 1, size(array,2)
 			write(unit, fmt, advance='no') array(i,j)
 		end do
 		write(unit, *)
@@ -110,13 +108,11 @@ subroutine printarray1(vector, fmt, un, row)
 	character(len=*), intent(in) :: fmt
 	integer, intent(in), optional :: un
 	logical, intent(in), optional :: row
-	integer :: unit
+	integer :: unit = 6
 	logical :: transpose = .false.
 	
 	if (present(un)) then
 		unit = un
-	else
-		unit = 6
 	end if
 	
 	if (present(row)) then
@@ -124,122 +120,116 @@ subroutine printarray1(vector, fmt, un, row)
 	end if
 	
 	if (transpose) then
-		call printarray2( reshape(vector, (/1, size(vector, 1)/)), fmt, un )
+		call printarray2( reshape(vector, (/1, size(vector,1)/)), fmt, un )
 	else
 		write(unit, fmt) vector
 	end if
 end subroutine printarray1
 
-pure subroutine alloc1_real(arr, n, zero)
-	real(8), intent(inout), allocatable :: arr(:)
-	integer, intent(in) :: n
-	logical, intent(in), optional :: zero
-	
-	if (allocated(arr)) then
-		deallocate( arr )
-	end if
-	
-	if (present(zero)) then
-		if (zero) then
-			allocate( arr(0:n) )
-		else
-			allocate( arr(n) )
-		end if
-	else
-		allocate( arr(n) )
-	end if
-	
-	arr = 0
-end subroutine alloc1_real
-
-pure subroutine alloc1_int(arr, n, zero)
-	integer, intent(inout), allocatable :: arr(:)
-	integer, intent(in) :: n
-	logical, intent(in), optional :: zero
-	
-	if (allocated(arr)) then
-		deallocate( arr )
-	end if
-	
-	if (present(zero)) then
-		if (zero) then
-			allocate( arr(0:n) )
-		else
-			allocate( arr(n) )
-		end if
-	else
-		allocate( arr(n) )
-	end if
-	
-	arr = 0
-end subroutine alloc1_int
-
-pure subroutine alloc2_real(arr, m, n, zero)
-	real(8), intent(inout), allocatable :: arr(:,:)
-	integer, intent(in) :: m, n
-	logical, intent(in), optional :: zero(2)
-	
-	if (allocated(arr)) then
-		deallocate( arr )
-	end if
-	
-	if (present(zero)) then
-		if (all(zero)) then
-			allocate( arr(0:m, 0:n) )
-		else if (zero(1)) then
-			allocate( arr(0:m, n) )
-		else if (zero(2)) then
-			allocate( arr(m, 0:n) )
-		else
-			allocate( arr(m,n) )
-		end if
-	else
-		allocate( arr(m,n) )
-	end if
-	
-	arr = 0
-end subroutine alloc2_real
-
-pure subroutine alloc2_int(arr, m, n, zero)
-	integer, intent(inout), allocatable :: arr(:,:)
-	integer, intent(in) :: m, n
-	logical, intent(in), optional :: zero(2)
-	
-	if (allocated(arr)) then
-		deallocate( arr )
-	end if
-	
-	if (present(zero)) then
-		if (all(zero)) then
-			allocate( arr(0:m, 0:n) )
-		else if (zero(1)) then
-			allocate( arr(0:m, n) )
-		else if (zero(2)) then
-			allocate( arr(m, 0:n) )
-		else
-			allocate( arr(m,n) )
-		end if
-	else
-		allocate( arr(m,n) )
-	end if
-	
-	arr = 0
-end subroutine alloc2_int
+! pure subroutine alloc1_real(arr, n, zero)
+! 	real(8), intent(inout), allocatable :: arr(:)
+! 	integer, intent(in) :: n
+! 	logical, intent(in), optional :: zero
+!
+! 	if (allocated(arr)) then
+! 		deallocate( arr )
+! 	end if
+!
+! 	if (present(zero)) then
+! 		if (zero) then
+! 			allocate( arr(0:n) )
+! 		else
+! 			allocate( arr(n) )
+! 		end if
+! 	else
+! 		allocate( arr(n) )
+! 	end if
+!
+! 	arr = 0
+! end subroutine alloc1_real
+!
+! pure subroutine alloc1_int(arr, n, zero)
+! 	integer, intent(inout), allocatable :: arr(:)
+! 	integer, intent(in) :: n
+! 	logical, intent(in), optional :: zero
+!
+! 	if (allocated(arr)) then
+! 		deallocate( arr )
+! 	end if
+!
+! 	if (present(zero)) then
+! 		if (zero) then
+! 			allocate( arr(0:n) )
+! 		else
+! 			allocate( arr(n) )
+! 		end if
+! 	else
+! 		allocate( arr(n) )
+! 	end if
+!
+! 	arr = 0
+! end subroutine alloc1_int
+!
+! pure subroutine alloc2_real(arr, m, n, zero)
+! 	real(8), intent(inout), allocatable :: arr(:,:)
+! 	integer, intent(in) :: m, n
+! 	logical, intent(in), optional :: zero(2)
+!
+! 	if (allocated(arr)) then
+! 		deallocate( arr )
+! 	end if
+!
+! 	if (present(zero)) then
+! 		if (all(zero)) then
+! 			allocate( arr(0:m, 0:n) )
+! 		else if (zero(1)) then
+! 			allocate( arr(0:m, n) )
+! 		else if (zero(2)) then
+! 			allocate( arr(m, 0:n) )
+! 		else
+! 			allocate( arr(m,n) )
+! 		end if
+! 	else
+! 		allocate( arr(m,n) )
+! 	end if
+!
+! 	arr = 0
+! end subroutine alloc2_real
+!
+! pure subroutine alloc2_int(arr, m, n, zero)
+! 	integer, intent(inout), allocatable :: arr(:,:)
+! 	integer, intent(in) :: m, n
+! 	logical, intent(in), optional :: zero(2)
+!
+! 	if (allocated(arr)) then
+! 		deallocate( arr )
+! 	end if
+!
+! 	if (present(zero)) then
+! 		if (all(zero)) then
+! 			allocate( arr(0:m, 0:n) )
+! 		else if (zero(1)) then
+! 			allocate( arr(0:m, n) )
+! 		else if (zero(2)) then
+! 			allocate( arr(m, 0:n) )
+! 		else
+! 			allocate( arr(m,n) )
+! 		end if
+! 	else
+! 		allocate( arr(m,n) )
+! 	end if
+!
+! 	arr = 0
+! end subroutine alloc2_int
 
 subroutine writematlab2(array, fmt, unit, filename, var)
 	real(8), intent(in) :: array(:,:)
-	character(len=*), intent(in) :: fmt, filename
+	character(len=*), intent(in) :: fmt, filename, var
 	integer, intent(in) :: unit
-	character(len=*), intent(in), optional :: var
 	
 	open(unit, file=filename//'.m', action='write', status='replace')
 	
-	if (present(var)) then
-		write(unit,'(A, A)') var, ' = ['
-	else
-		write(unit,'(A)') 'A = ['
-	end if
-	
+	write(unit,'(A, A)') var, ' = ['
 	call printarray2(array, fmt, unit)
 	write(unit,'(A)') '];'
 	
@@ -247,41 +237,34 @@ end subroutine writematlab2
 
 subroutine writematlab1(vector, fmt, unit, filename, var)
 	real(8), intent(in) :: vector(:)
-	character(len=*), intent(in) :: fmt, filename
+	character(len=*), intent(in) :: fmt, filename, var
 	integer, intent(in) :: unit
-	character(len=*), intent(in), optional :: var
 	
 	open(unit, file=filename//'.m', action='write', status='replace')
 	
-	if (present(var)) then
-		write(unit,'(A, A)') var, ' = ['
-	else
-		write(unit,'(A)') 'x = ['
-	end if
-	
+	write(unit,'(A, A)') var, ' = ['
 	call printarray1(vector, fmt, unit)
 	write(unit,'(A)') '];'
 	
 end subroutine writematlab1
 
-subroutine showprogress(i, iend, num)
-	integer, intent(in) :: i, iend
+subroutine showprogress(i, itot, num)
+	integer, intent(in) :: i, itot
 	integer, intent(in), optional :: num
-	real(8) :: x, unit
-	integer :: len, bars
+	real(8) :: xstep, x
+	integer :: nbars = 20, bars
 	
 	if (present(num)) then
-		len = num
-	else
-		len = 20
+		nbars = num
 	end if
-		
-	unit = dble(len)/iend
-	x = i*unit
+	
+	xstep = dble(nbars)/itot
+	x = i*xstep
 	bars = floor(x)
-	if ((x - bars)/unit < 0.999999) then
-		print *, nint(100*dble(i)/iend), '%  ', &
-			'[', repeat('|',bars), repeat('-',len-bars), ']'
+	
+	if ((x - floor(x))/xstep < 1d0 - 1d-6) then
+		print *, nint(100*dble(i)/itot), '%  ', &
+			'[', repeat('|',bars), repeat('-',nbars-bars), ']'
 	end if
 	
 end subroutine showprogress

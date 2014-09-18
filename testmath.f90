@@ -5,17 +5,17 @@ program testmath
 	implicit none
 	
 	call initrand()
-!	call printconst()
-!	call testprintarray(5, 5)
-	call testwritematlab(5, 5)
-!	call testcumsum(5, 5)
-!	call testpdftocdf()
-!	call testsearchintvl()
-!	call testnormtwo()
-!	call testunitvec()
-!	call testproject()
-!	call testcrossproduct()
-!	call testangdir()
+! 	call printconst()
+! 	call testprintarray(5, 5)
+! 	call testwritematlab(5, 5)
+! 	call testcumsum(5, 5)
+! 	call testpdftocdf()
+! 	call testsearchintvl()
+	call testnormtwo()
+	call testunitvec()
+	call testproject()
+	call testcrossproduct()
+	call testangdir()
 contains
 
 subroutine printconst()
@@ -26,48 +26,52 @@ end subroutine printconst
 
 subroutine testprintarray(m, n)
 	integer, intent(in) :: m, n
+	real(8) :: array1(m), array2(m,n)
 	character(len=6), parameter :: fmt = '(F8.0)'
+	integer :: i
 	
-	call printarray(makearray(m), fmt)
+	array1 = (/(dble(i), i=1,m)/)
+	array2 = reshape((/(dble(i), i=1,m*n)/), (/m,n/))
+
+	call printarray(array1, fmt)
 	print *
-	call printarray(makearray(m, n), fmt)
+	call printarray(array2, fmt)
 end subroutine testprintarray
 
 subroutine testwritematlab(m, n)
 	integer, intent(in) :: m, n
+	real(8) :: array1(m), array2(m,n)
 	character(len=6), parameter :: fmt = '(F8.0)'
+	integer :: i
 	
-	call writematlab(makearray(m), fmt, 2, 'vector', 'vec')
-	call writematlab(makearray(m,n), fmt, 2, 'array', 'arr')
+	array1 = (/(dble(i), i=1,m)/)
+	array2 = reshape((/(dble(i), i=1,m*n)/), (/m,n/))
 	
+	call writematlab(array1, fmt, 2, 'vector', 'vec')
+	call writematlab(array2, fmt, 2, 'array', 'arr')
 end subroutine testwritematlab
 
 subroutine testcumsum(m, n)
 	integer, intent(in) :: m, n
+	real(8) :: array1(m)
 	character(len=6), parameter :: fmt = '(F8.0)'
-	real(8) :: array1(m), array2(m, n)
 	integer :: i
 	
-	array1 = makearray(m)
+	array1 = (/(dble(i), i=1,m)/)
+	
 	call printarray(array1, fmt, row=.true.)
 	call printarray( cumsum(array1), fmt, row=.true.)
-	print *
-	
-	array2 = makearray(m, n)
-	call printarray(array2, fmt)
-	call printarray( cumsum(array2, 1), fmt )
-	call printarray( cumsum(array2, 2), fmt )
 end subroutine testcumsum
 
 subroutine testpdftocdf()
 	integer, parameter :: m = 5
-	real(8) :: cdf(m), pdf(m)
+	real(8) :: pdf(m), cdf(m)
+	integer :: i
 	
-	pdf = makearray(m)
-!	pdf = (/0.2, 0.2, 0.2, 0.2, 0.2/)
+	pdf = (/(0d0, i=1,m)/)
 	cdf = pdftocdf(pdf)
 	
-	call printarray(pdf, '(F8.0)')
+	call printarray(pdf, '(F8.3)')
 	print *
 	call printarray(cdf, '(F8.3)')
 end subroutine testpdftocdf
@@ -79,7 +83,7 @@ subroutine testsearchintvl()
 	integer :: i
 	
 	cdf = (/(dble(i)/m, i=1,m)/)
-	call printarray(cdf, '(F8.3)', row=.true.)
+! 	call printarray(cdf, '(F8.3)', row=.true.)
 	
 	do i = 1, N
 		call random_number(r)
@@ -106,7 +110,7 @@ subroutine testunitvec()
 	real(8) :: vec(2)
 	
 	vec = (/3, 4/)
-!	vec = (/0, 0/)
+! 	vec = (/0, 0/)
 	call printarray(vec, '(F8.3)', row=.true.)
 	call printarray(unitvec(vec), '(F8.3)', row=.true.)
 end subroutine testunitvec
