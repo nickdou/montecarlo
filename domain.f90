@@ -3,7 +3,8 @@ module domain
 	use math
 	use distributions
 	implicit none
-
+	
+! 	public
 	private
 	public  :: SPEC_BC, DIFF_BC, ISOT_BC, PERI_BC, axis, rectbdry, &
 		makeaxis, setgrid, initrecord, inittraj, appendtraj, gettraj, &
@@ -245,9 +246,12 @@ subroutine calculateemit(num)
 end subroutine calculateemit
 
 pure function getemit() result(arr)
-	integer :: arr(nbdry)
+	integer :: i, arr(nbdry)
 	
-	arr = emit_arr
+	arr = 0
+	do i = 1,nbdry
+		arr(i) = emit_arr(i)
+	end do
 end function getemit
 
 real(8) pure function geteeff() result(E)

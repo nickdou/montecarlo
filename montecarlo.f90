@@ -102,7 +102,7 @@ subroutine run(disp, relax, one, vol, gf, nemit, ncell, ntime, length, side, wal
 		call simulateone(maxscat, maxcoll)
 		
 	else
-		call simulate(maxscat)
+		call simulate(nemit, maxscat)
 		
 		call writetemp(ncell, ntime)
 		if (gf) then
@@ -146,7 +146,7 @@ subroutine rununit(disp, relax, one, nemit, ntime, a, b, c, d, tend, T, Thot, Tc
 		call simulateone(maxscat, maxcoll)
 	
 	else
-		call simulate(maxscat)
+		call simulate(nemit, maxscat)
 		
 		cond = getcond(Tcold - Thot, length)
 		if (present(k)) then
