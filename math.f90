@@ -148,14 +148,22 @@ pure function dirtoang(dir) result(ang)
 	end if
 end function dirtoang
 
-pure function rotmatrix(xaxis, yaxis, zaxis) result(mat)
-	real(8), intent(in) :: xaxis(3), yaxis(3), zaxis(3)
-	real(8) :: mat(3,3)
+! pure function rotmatrix(xaxis, yaxis, zaxis) result(mat)
+! 	real(8), intent(in) :: xaxis(3), yaxis(3), zaxis(3)
+! 	real(8) :: mat(3,3)
+!
+! 	mat(:,1) = xaxis
+! 	mat(:,2) = yaxis
+! 	mat(:,3) = zaxis
+! end function rotmatrix
+
+pure function inverse2(mat) result(inv)
+	real(8), intent(in) :: mat(2,2)
+	real(8) :: det, inv(2,2)
 	
-	mat(:,1) = xaxis
-	mat(:,2) = yaxis
-	mat(:,3) = zaxis
-end function rotmatrix
+	det = mat(1,1)*mat(2,2) - mat(1,2)*mat(2,1)
+	inv = 1/det * reshape((/mat(2,2), -mat(2,1), -mat(1,2), mat(1,1)/), (/2,2/))
+end function inverse2
 
 integer pure function signtoint(sign) result(pm)
 	logical, intent(in) :: sign

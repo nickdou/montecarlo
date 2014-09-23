@@ -19,7 +19,7 @@ subroutine initisot1d(disp, relax, vol, gf, nemit, ncell, ntime, length, side, t
 	real(8), intent(in) :: length, side, tend, T, Thot, Tcold
 	integer, parameter :: nbdry = 6
 	type(axis) :: grid, vgen
-	type(rectbdry) :: bdry_arr(nbdry)
+	type(boundary) :: bdry_arr(nbdry)
 	real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
 	integer :: emit_arr(nbdry)
 
@@ -79,7 +79,7 @@ subroutine initfilm(disp, relax, vol, gf, nemit, ncell, ntime, length, side, ten
 	real(8), intent(in) :: length, side, tend, T, Thot, Tcold
 	integer, parameter :: nbdry = 6
 	type(axis) :: grid, vgen
-	type(rectbdry) :: bdry_arr(nbdry)
+	type(boundary) :: bdry_arr(nbdry)
 	real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
 	integer :: emit_arr(nbdry)
 
@@ -125,7 +125,7 @@ subroutine inithollow(disp, relax, vol, gf, nemit, ncell, ntime, length, side, w
 	real(8), intent(in) :: length, side, wall, tend, T, Thot, Tcold
 	integer, parameter :: nbdry = 16
 	type(axis) :: grid, vgen
-	type(rectbdry) :: bdry_arr(nbdry)
+	type(boundary) :: bdry_arr(nbdry)
 	real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3), xwall(3), ywall(3)
 	integer :: emit_arr(nbdry)
 
@@ -189,7 +189,7 @@ subroutine initunit(disp, relax, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold)
 	real(8), intent(in) :: a, b, c, d, tend, T, Thot, Tcold
 	integer, parameter :: nbdry = 24
 	type(axis) :: grid, vgen
-	type(rectbdry) :: bdry_arr(nbdry)
+	type(boundary) :: bdry_arr(nbdry)
 	real(8) :: l, bdrydata_arr(nbdry, 10)
 	integer :: i, bc_arr(nbdry), emit_arr(nbdry)
 

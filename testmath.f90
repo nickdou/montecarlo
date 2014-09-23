@@ -11,11 +11,12 @@ program testmath
 ! 	call testcumsum(5, 5)
 ! 	call testpdftocdf()
 ! 	call testsearchintvl()
-	call testnormtwo()
-	call testunitvec()
-	call testproject()
-	call testcrossproduct()
-	call testangdir()
+! 	call testnormtwo()
+! 	call testunitvec()
+! 	call testproject()
+! 	call testcrossproduct()
+	call testinverse2()
+! 	call testangdir()
 contains
 
 subroutine printconst()
@@ -136,6 +137,15 @@ subroutine testcrossproduct()
 	call printarray(b, '(F8.3)', row=.true.)
 	call printarray(cross_product(a, b), '(F8.3)', row=.true.)
 end subroutine testcrossproduct
+
+subroutine testinverse2()
+	real(8) :: mat(2,2), inv(2,2)
+
+	call random_number(mat)
+! 	mat = reshape((/1d0, 2d0, 3d0, 4d0/), (/2,2/))
+	inv = inverse2(mat)
+	call printarray(matmul(mat,inv), '(ES16.8)')
+end subroutine testinverse2
 
 subroutine testangdir()
 	real(8) :: ang(2), ang2(2), dir(3)

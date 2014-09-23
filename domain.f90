@@ -6,7 +6,7 @@ module domain
 	
 ! 	public
 	private
-	public  :: SPEC_BC, DIFF_BC, ISOT_BC, PERI_BC, axis, rectbdry, &
+	public  :: SPEC_BC, DIFF_BC, ISOT_BC, PERI_BC, axis, boundary, &
 		makeaxis, setgrid, initrecord, inittraj, appendtraj, gettraj, &
 		makebdry, setbdry, setbdrypair, calculateemit, setvolumetric, getemit, geteeff, &
 		drawemittime, drawemitstate, updatestate, applybc, &
@@ -19,12 +19,12 @@ module domain
 		real(8) :: dir(3), lo, hi, h
 	end type axis
 	
-	type rectbdry
+	type boundary
 		private
 		integer :: bc, pair
-		real(8) :: o(3), n(3), loc, dx, dy, area, rot(3,3), &
-			temp, pairmv(3)
-	end type rectbdry
+		real(8) :: origin(3), normal(3), ivec(3), jvec(3), area, rot(3,3), inv(3,3), temp, pairmv(3)
+		logical :: tri
+	end type boundary
 	
 	interface addcumdisp
 		module procedure addcumdisp_real, addcumdisp_int
@@ -42,7 +42,7 @@ module domain
 	real(8), allocatable :: trajectory(:,:)
 	real(8), allocatable :: gridtime_arr(:), griddisp_arr(:)
 	integer, allocatable :: gridloc_arr(:,:)
-	type(rectbdry), allocatable :: bdry_arr(:)
+	type(boundary), allocatable :: bdry_arr(:)
 	integer, allocatable :: emit_arr(:)
 
 contains
@@ -156,38 +156,53 @@ integer pure function gettind(time) result(tind)
 	tind = min(ntime, max(0, floor(time/tstep)))
 end function gettind
 
-type(rectbdry) pure function makebdry(bc, o, xvec, yvec, temp) result(bdry)
+type(boundary) pure function makebdry(bc, origin, ivec, jvec, temp, tri) result(bdry)
 	integer, intent(in) :: bc
-	real(8), intent(in) :: o(3), xvec(3), yvec(3)
+	real(8), intent(in) :: origin(3), ivec(3), jvec(3)
 	real(8), intent(in), optional :: temp
-	real(8) :: cross(3), xaxis(3), yaxis(3), zaxis(3)
+	logical, intent(in), optional :: tri
+	real(8) :: kvec(3), dotij, normi, normk, rot(3,3), inv(3,3)
 	
-	if (dot_product(xvec, yvec) == 0) then
-		bdry%bc = bc
-		bdry%o = o
-		bdry%dx = normtwo(xvec)
-		bdry%dy = normtwo(yvec)
-		
-		cross = cross_product(xvec, yvec)
-		xaxis = unitvec(xvec)
-		yaxis = unitvec(yvec)
-		zaxis = unitvec(cross)
+	bdry%bc = bc
+	bdry%origin = origin
+	bdry%ivec = ivec
+	bdry%jvec = jvec
 	
-		bdry%area = normtwo(cross)
-		bdry%n = zaxis
-		bdry%loc = dot_product(o, zaxis)
-		bdry%rot = rotmatrix(xaxis, yaxis, zaxis)
+	dotij = dot_product(ivec, jvec)
+	kvec = cross_product(ivec, jvec)
+	normi = normtwo(ivec)
+	normk = normtwo(kvec)
 	
-		if (bc == ISOT_BC .or. bc == PERI_BC) then
-			bdry%temp = temp
-		else
-			bdry%temp = 0
-		end if
+	rot(:,1) = ivec/normi
+	rot(:,2) = (jvec - ivec*(dotij/normi**2))*(normi/normk)
+	rot(:,3) = kvec/normk
+	
+	inv(1,:) = rot(:,1)/normi - rot(:,2)*(dotij/(normi*normk))
+	inv(2,:) = rot(:,2)*(normi/normk)
+	inv(3,:) = rot(:,3)/normk
+	
+	bdry%area = normk
+	bdry%normal = rot(:,3)
+	bdry%rot = rot
+	bdry%inv = inv
+	
+	if (present(tri)) then
+		bdry%tri = tri
+	else
+		bdry%tri = .false.
 	end if
+	
+	if (bc == ISOT_BC .or. bc == PERI_BC) then
+		bdry%temp = temp
+	else
+		bdry%temp = 0d0
+	end if
+	
+	bdry%pairmv = 0d0
 end function makebdry
 
 subroutine setbdry(arr, vol)
-	type(rectbdry), intent(in) :: arr(:)
+	type(boundary), intent(in) :: arr(:)
 	real(8), intent(in) :: vol
 	
 	nbdry = size(arr)
@@ -298,8 +313,10 @@ subroutine drawemitstate(pos, dir, sign)
 		end do
 	
 		call drawposrect(pos)
-		pos = (/bdry_arr(emitind)%dx, bdry_arr(emitind)%dy, 1d0/)*pos
-		pos = bdry_arr(emitind)%o + matmul(bdry_arr(emitind)%rot, pos)
+! 		pos = (/bdry_arr(emitind)%dx, bdry_arr(emitind)%dy, 1d0/)*pos
+! 		pos = bdry_arr(emitind)%origin + matmul(bdry_arr(emitind)%rot, pos)
+		pos = bdry_arr(emitind)%origin + pos(1)*bdry_arr(emitind)%ivec + &
+			pos(2)*bdry_arr(emitind)%jvec
 		
 		if (volumetric) then
 			call random_number(r)
@@ -314,27 +331,32 @@ subroutine drawemitstate(pos, dir, sign)
 	end if
 end subroutine drawemitstate
 
-pure subroutine getcoll(pierced, coll, pos1, pos2, dx, dy)
-	real(8), intent(in) :: pos1(3), pos2(3), dx, dy
+pure subroutine getcoll(pierced, coll, pos1, pos2, tri)
+	real(8), intent(in) :: pos1(3), pos2(3)
+	logical, intent(in) :: tri
 	logical, intent(out) :: pierced
 	real(8), intent(out) :: coll(3)
-	real(8) :: z1, z2
+	real(8) :: k1, k2
 	
-	z1 = pos1(3)
-	z2 = pos2(3)
-	coll = (z2*pos1 - z1*pos2)/(z2 - z1)
+	k1 = pos1(3)
+	k2 = pos2(3)
+	coll = (k2*pos1 - k1*pos2)/(k2 - k1)
 	
-	pierced = (z1*z2 < 0) .and. &
-		(coll(1) >= 0 .and. coll(1) <= dx) .and. &
-		(coll(2) >= 0 .and. coll(2) <= dy)
+	if (k1*k2 > 0) then
+		pierced = .false.
+	else if (tri) then
+		pierced = all(coll(1:2) >= 0) .and. sum(coll(1:2)) <= 1
+	else
+		pierced = all(coll(1:2) >= 0 .and. coll(1:2) <= 1)
+	end if
 end subroutine getcoll
 
 subroutine updatestate(ind, bc, x, dir, deltax, t, deltat)
 	real(8), intent(inout) :: x(3), dir(3), deltax, t, deltat
 	integer, intent(out) :: ind, bc
 	integer :: i
-	real(8) :: v, aim(3), o(3), dx, dy, rot(3,3), rotT(3,3), pos1(3), pos2(3)
-	logical :: piercedi, pierced(nbdry)
+	real(8) :: v, aim(3), origin(3), ivec(3), jvec(3), inv(3,3), pos1(3), pos2(3)
+	logical :: tri, piercedi, pierced(nbdry)
 	real(8) :: colli(3), coll(3,nbdry), dist(nbdry)
 	
 	v = deltax/deltat
@@ -345,18 +367,18 @@ subroutine updatestate(ind, bc, x, dir, deltax, t, deltat)
 	aim = x + deltax*dir
 	
 	do i = 1,nbdry
-		o = bdry_arr(i)%o
-		dx = bdry_arr(i)%dx
-		dy = bdry_arr(i)%dy
-		rot = bdry_arr(i)%rot
-		rotT = transpose(rot)
+		origin = bdry_arr(i)%origin
+		ivec = bdry_arr(i)%ivec
+		jvec = bdry_arr(i)%jvec
+		inv = bdry_arr(i)%inv
+		tri = bdry_arr(i)%tri
 		
-		pos1 = matmul(rotT, x - o)
-		pos2 = matmul(rotT, aim - o)
-		call getcoll(piercedi, colli, pos1, pos2, dx, dy)
+		pos1 = matmul(inv, x - origin)
+		pos2 = matmul(inv, aim - origin)
+		call getcoll(piercedi, colli, pos1, pos2, tri)
 		
 		pierced(i) = piercedi
-		coll(:,i) = o + matmul(rot, colli)
+		coll(:,i) = origin + colli(1)*ivec + colli(2)*jvec
 		dist(i) = normtwo(colli - pos1)
 	end do
 	
@@ -385,7 +407,7 @@ subroutine applybc(ind, bc, x, dir)
 	if (bc /= 0 .and. any(dir /= 0, 1)) then
 		select case (bc)
 		case (SPEC_BC)
-			dir = dir - 2*project(dir, bdry_arr(ind)%n)
+			dir = dir - 2*project(dir, bdry_arr(ind)%normal)
 		case (DIFF_BC)
 			call drawanghalf(dir)
 			dir = matmul(bdry_arr(ind)%rot, dir)
