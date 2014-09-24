@@ -12,8 +12,8 @@ program montecarlo
 	real(8) :: a, b, c, d, length, side, wall, tend, T, Thot, Tcold
 	real(8) :: k, cond(nside, nwall)
 	
-	character(len=*), parameter :: disp  = 'input/Si_disp.txt'
-	character(len=*), parameter :: relax = 'input/Si_relax.txt'
+	character(len=*), parameter :: disp  = './input/Si_disp.txt'
+	character(len=*), parameter :: relax = './input/Si_relax.txt'
 	
 	one = .false.
 	vol = .true.

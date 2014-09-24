@@ -88,10 +88,13 @@ subroutine initdist()
 	fluxpdf_arr = vel_arr*dedT_arr*dos_arr*domega_arr
 	scatterpdf_arr = dedT_arr/tau_arr*dos_arr*domega_arr
 	
+	allocate( energycdf_arr(0:npol, nomega) )
+	allocate( fluxcdf_arr(0:npol, nomega) )
+	allocate( scattercdf_arr(0:npol, nomega) )
+	
 	energycdf_arr = calculatecdf(energypdf_arr)
 	fluxcdf_arr = calculatecdf(fluxpdf_arr)
 	scattercdf_arr = calculatecdf(scatterpdf_arr)
-	
 end subroutine initdist
 
 !subroutine initomega_int(n)

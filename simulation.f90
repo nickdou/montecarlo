@@ -263,7 +263,7 @@ subroutine simulate(nemit, maxscat)
 	type(phonon) :: phn
 	
 	do i = 1, nemit
-		print ('(/,A,I2)'), 'Particle ', i
+! 		print ('(/,A,I2)'), 'Particle ', i
 		phn = emit()
 
 		call drawemittime(t)

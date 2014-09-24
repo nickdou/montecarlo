@@ -1,8 +1,12 @@
 program test
 	implicit none
-	real(8) :: array(2) = (/1d0, 1d0/)
+	integer, parameter :: N = 5
+	real(8), allocatable :: array(:)
+	integer :: i
 	
-	print *, 0 <= array .and. array <= 1
+	allocate( array(N) )
+	array = (/(dble(i), i=1,N)/)
+	print *, array
 	
 contains
 

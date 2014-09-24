@@ -298,7 +298,6 @@ end subroutine drawemittime
 subroutine drawemitstate(pos, dir, sign)
 	real(8), intent(out) :: pos(3), dir(3)
 	logical, intent(out) :: sign
-	integer :: ind
 	real(8) :: r
 	
 	if (nemit > 0) then
@@ -532,7 +531,7 @@ end subroutine recorddisp
 subroutine recordloc(sign, t, deltat, xold, xnew)
 	logical, intent(in) :: sign
 	real(8), intent(in) :: t, deltat, xold(3), xnew(3)
-	real(8) :: xi, coord
+	real(8) :: xi
 	integer :: pm, told, tnew, tind, xind
 	
 	if (ntime /= 0) then
