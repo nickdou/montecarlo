@@ -10,7 +10,7 @@ module particle
 		private
 		logical :: sign, alive
 		real(8) :: x0(3), x(3), dir(3), tscat
-		integer :: p, q
+		integer :: p, q, ind
 	end type phonon
 contains
 
@@ -36,7 +36,7 @@ end function getpos
 
 type(phonon) function emit() result(phn)
 	call drawfluxprop(phn%p, phn%q)
-	call drawemitstate(phn%x, phn%dir, phn%sign)
+	call drawemitstate(phn%ind, phn%x, phn%dir, phn%sign)
 	call drawscattime(phn%tscat, phn%p, phn%q)
 	phn%x0 = phn%x
 	phn%alive = .true.
@@ -51,6 +51,7 @@ subroutine scatter(phn, nscat)
 		call drawangiso(phn%dir)
 		call drawscattime(phn%tscat, phn%p, phn%q)
 		
+		phn%ind = 0
 		nscat = nscat + 1
 	end if
 end subroutine scatter
@@ -58,29 +59,34 @@ end subroutine scatter
 subroutine advect(phn, t)
 	type(phonon), intent(inout) :: phn
 	real(8), intent(inout) :: t
-	real(8) :: x(3), dir(3), deltax, deltat
+	real(8) :: x(3), dir(3), v, deltat
 	integer :: ind, bc
 	
 	x = phn%x
 	dir = phn%dir
-	deltax = vel_arr(phn%p, phn%q)*phn%tscat
+	ind = phn%ind
+	v = vel_arr(phn%p, phn%q)
 	deltat = phn%tscat
 	
-	call updatestate(ind, bc, x, dir, deltax, t, deltat)
+	call updatestate(bc, ind, x, dir, v, deltat, t)
+! 	print *, ind, bc, x
 	call appendtraj(x)
 	
 	call recordtime(phn%sign, deltat, phn%x, x)
 	call recorddisp(phn%sign, phn%x, x)
 	call recordloc(phn%sign, t, deltat, phn%x, x)
 	
-	call applybc(ind, bc, x, dir)
 	if (bc == PERI_BC) then
-		call appendtraj(x)
 		call addcumdisp(phn%sign, ind)
+		call applybc(bc, ind, x, dir)
+		call appendtraj(x)
+	else
+		call applybc(bc, ind, x, dir)
 	end if
 	
 	phn%x = x
 	phn%dir = dir
+	phn%ind = ind
 	phn%tscat = phn%tscat - deltat
 	
 	if (all(dir == 0, 1)) then

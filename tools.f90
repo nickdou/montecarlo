@@ -1,4 +1,6 @@
 module tools
+	use omp_lib
+	use mt_stream
 	implicit none
 	
 	public
@@ -7,68 +9,136 @@ module tools
 ! 		module procedure zeros1, zeros2
 ! 	end interface zeros
 	
+! 	interface alloc
+! 		module procedure alloc1_real, alloc1_int, alloc2_real, alloc2_int
+! 	end interface alloc
+
+	interface randnum
+		module procedure randnum_dbl, randnum_arr
+	end interface randnum
+	
 	interface printarray
 		module procedure printarray1, printarray2
 	end interface printarray
 	
-! 	interface alloc
-! 		module procedure alloc1_real, alloc1_int, alloc2_real, alloc2_int
-! 	end interface alloc
-	
 	interface writematlab
 		module procedure writematlab1, writematlab2
 	end interface writematlab
-
+	
+	integer :: nthreads = 1
+	logical :: usemt
+	type(mt_state), allocatable :: randstate(:)
+	
 contains
 
-subroutine initrand()
-! http://gcc.gnu.org/onlinedocs/gfortran/RANDOM_005fSEED.html
+subroutine initomp(n)
+	integer, intent(in), optional :: n
 	
+!$ 	if (present(n)) then
+!$ 		nthreads = n
+!$ 	else
+!$ 		nthreads = omp_get_max_threads()
+!$ 	end if
+!$ 	print ('(A,I2,A,/)'), 'OMP enabled, ', nthreads, ' threads available'
+end subroutine
+
+subroutine initrand(mt)
+! http://gcc.gnu.org/onlinedocs/gfortran/RANDOM_005fSEED.html
+
+	logical, intent(in) :: mt
 	integer, allocatable :: seed(:)
 	integer :: i, n, un, istat, dt(8), pid, t(2), s
 	integer(8) :: count, tms
-
-	call random_seed(size = n)
+	type(mt_state) :: parentstate
+	
+	usemt = mt
+	if (mt) then
+		n = 1
+	else
+		call random_seed(size = n)
+	end if
 	allocate(seed(n))
 	! First try if the OS provides a random number generator
 	open(unit=un, file="/dev/urandom", access="stream", &
-		 form="unformatted", action="read", status="old", iostat=istat)
+		form="unformatted", action="read", status="old", iostat=istat)
+	
 	if (istat == 0) then
-	   read(un) seed
-	   close(un)
+		print ('(A)'), 'Random seed from urandom'
+		read(un) seed
+		close(un)
+	   
 	else
-	   ! Fallback to XOR:ing the current time and pid. The PID is
-	   ! useful in case one launches multiple instances of the same
-	   ! program in parallel.
-	   call system_clock(count)
-	   if (count /= 0) then
-		  t = transfer(count, t)
-	   else
-		  call date_and_time(values=dt)
-		  tms = (dt(1) - 1970) * 365_8 * 24 * 60 * 60 * 1000 &
-			   + dt(2) * 31_8 * 24 * 60 * 60 * 1000 &
-			   + dt(3) * 24 * 60 * 60 * 60 * 1000 &
-			   + dt(5) * 60 * 60 * 1000 &
-			   + dt(6) * 60 * 1000 + dt(7) * 1000 &
-			   + dt(8)
-		  t = transfer(tms, t)
-	   end if
-	   s = ieor(t(1), t(2))
-	   pid = getpid() + 1099279 ! Add a prime
-	   s = ieor(s, pid)
-	   if (n >= 3) then
-		  seed(1) = t(1) + 36269
-		  seed(2) = t(2) + 72551
-		  seed(3) = pid
-		  if (n > 3) then
-			 seed(4:) = s + 37 * (/ (i, i = 0, n - 4) /)
-		  end if
-	   else
-		  seed = s + 37 * (/ (i, i = 0, n - 1 ) /)
-	   end if
+		print ('(A)'), 'Random seed from time and pid'
+		! Fallback to XOR:ing the current time and pid. The PID is
+		! useful in case one launches multiple instances of the same
+		! program in parallel.
+		call system_clock(count)
+		if (count /= 0) then
+			t = transfer(count, t)
+		else
+			call date_and_time(values=dt)
+			tms = (dt(1) - 1970) * 365_8 * 24 * 60 * 60 * 1000 &
+				+ dt(2) * 31_8 * 24 * 60 * 60 * 1000 &
+				+ dt(3) * 24 * 60 * 60 * 60 * 1000 &
+				+ dt(5) * 60 * 60 * 1000 &
+				+ dt(6) * 60 * 1000 + dt(7) * 1000 &
+				+ dt(8)
+			t = transfer(tms, t)
+		end if
+		s = ieor(t(1), t(2))
+		pid = getpid() + 1099279 ! Add a prime
+		s = ieor(s, pid)
+		if (n >= 3) then
+			seed(1) = t(1) + 36269
+			seed(2) = t(2) + 72551
+			seed(3) = pid
+			if (n > 3) then
+				seed(4:) = s + 37 * (/ (i, i = 0, n - 4) /)
+			end if
+		else
+			seed = s + 37 * (/ (i, i = 0, n - 1 ) /)
+		end if
 	end if
-	call random_seed(put=seed)
+	print *, seed
+	if (usemt) then
+		call set_mt19937
+		call new(parentstate)
+		call init(parentstate, seed)
+		
+		allocate( randstate(0:nthreads-1) )
+		do i = 0, nthreads-1
+			call create_stream(parentstate, randstate(i), i)
+		end do
+	else
+		call random_seed(put=seed)
+	end if
 end subroutine initrand
+
+subroutine randnum_dbl(x)
+	real(8), intent(out) :: x
+	integer :: threadi = 0
+	
+!$  threadi = omp_get_thread_num()
+	if (usemt) then
+		x = genrand_double1(randstate(threadi))
+	else
+		call random_number(x)
+	end if
+end subroutine randnum_dbl
+
+subroutine randnum_arr(x)
+	real(8), intent(out) :: x(:)
+	integer :: i, threadi = 0
+	
+!$  threadi = omp_get_thread_num()
+	if (usemt) then
+		do i = 1,size(x)
+			x(i) = genrand_double1(randstate(threadi))
+		end do
+	else
+		call random_number(x)
+	end if
+end subroutine randnum_arr
 
 ! function zeros1(m) result(array)
 ! 	integer, intent(in) :: m

@@ -1,9 +1,10 @@
 program montecarlo
+	use omp_lib
 	use tools
 	use simulation
 	implicit none
 	
-	logical :: one, vol, gf
+	logical :: one, mt, vol, gf
 	
 	integer :: nemit, ncell, ntime, maxscat, maxcoll
 	integer :: i, j
@@ -15,12 +16,16 @@ program montecarlo
 	character(len=*), parameter :: disp  = './input/Si_disp.txt'
 	character(len=*), parameter :: relax = './input/Si_relax.txt'
 	
-	one = .false.
-	vol = .true.
-	gf  = .true.
+!$ 	nthreads = omp_get_max_threads()
+!$ 	print ('(A,I3,A,/)'), 'OMP enabled, ', nthreads, ' threads available'
 	
-	nemit = 1000
-	ncell = 100
+	one = .false.
+	mt = .true.
+	vol = .true.
+	gf  = .false.
+	
+	nemit = 10000000
+	ncell = 200
 	ntime = 0              !zero for steady
 	length = 1e-6
 	side = 100e-9
@@ -39,17 +44,18 @@ program montecarlo
 	
 !	do j = 1,nwall
 !		do i = 1,nside
-!			call run(disp, relax, one, vol, gf, nemit, ncell, ntime, length, side(i), wall(j), tend, T, Thot, Tcold, maxscat, maxcoll, k)
+!			call run(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side(i), wall(j), tend, T, Thot, Tcold, maxscat, maxcoll, k)
 !			cond(i,j) = k
 !		end do
 !	end do
 !	print ('(A12)'), 'k = '
 !	call printarray(transpose(cond), '(ES16.8)')
 	
-! 	call run(disp, relax, one, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold, maxscat, maxcoll)
+	call run(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold, maxscat, maxcoll, k)
 	
 	one = .false.
-	nemit = 1000
+	mt = .true.
+	nemit = 100000
 	ntime = 0
 	a = 0.8d-6
 	b = 0.2d-6
@@ -63,13 +69,13 @@ program montecarlo
 	maxscat = 100
 	maxcoll = 2*maxscat
 	
-	call rununit(disp, relax, one, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold, maxscat, maxcoll, k)
+! 	call rununit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold, maxscat, maxcoll, k)
 	
 contains
 
-subroutine run(disp, relax, one, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold, maxscat, maxcoll, k)
+subroutine run(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold, maxscat, maxcoll, k)
 	character(len=*), intent(in) :: disp, relax
-	logical, intent(in) :: one, vol, gf
+	logical, intent(in) :: one, mt, vol, gf
 	integer, intent(in) :: nemit, ncell, ntime, maxscat, maxcoll
 	real(8), intent(in) :: length, side, wall, tend, T, Thot, Tcold
 	real(8), intent(out), optional :: k
@@ -78,6 +84,7 @@ subroutine run(disp, relax, one, vol, gf, nemit, ncell, ntime, length, side, wal
 	print ('(A12,A)'), 'disp = ', disp
 	print ('(A12,A)'), 'relax = ', relax
 	print ('(A12,L)'), 'one = ', one
+	print ('(A12,L)'), 'mt = ', mt
 	print ('(A12,L)'), 'vol = ', vol
 	print ('(A12,L)'), 'gf = ', gf
 	print ('(A12,I10)'), 'nemit = ', nemit
@@ -93,10 +100,10 @@ subroutine run(disp, relax, one, vol, gf, nemit, ncell, ntime, length, side, wal
 	print ('(A12,F10.3)'), 'Thot = ', Thot
 	print ('(A12,F10.3)'), 'Tcold = ', Tcold
 	
-! 	call initisot1d(disp, relax, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
-! 	call initbulk1d(disp, relax, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
-! 	call initfilm(disp, relax, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
-	call inithollow(disp, relax, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold)
+! 	call initisot1d(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+	call initbulk1d(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+! 	call initfilm(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+! 	call inithollow(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold)
 	
 	if (one) then
 		call simulateone(maxscat, maxcoll)
@@ -116,9 +123,9 @@ subroutine run(disp, relax, one, vol, gf, nemit, ncell, ntime, length, side, wal
 	end if
 end subroutine run
 
-subroutine rununit(disp, relax, one, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold, maxscat, maxcoll, k)
+subroutine rununit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold, maxscat, maxcoll, k)
 	character(len=*), intent(in) :: disp, relax
-	logical, intent(in) :: one
+	logical, intent(in) :: one, mt
 	integer, intent(in) :: nemit, ntime, maxscat, maxcoll
 	real(8), intent(in) :: a, b, c, d, tend, T, Thot, Tcold
 	real(8), intent(out), optional :: k
@@ -127,6 +134,7 @@ subroutine rununit(disp, relax, one, nemit, ntime, a, b, c, d, tend, T, Thot, Tc
 	print ('(A12,A)'), 'disp = ', disp
 	print ('(A12,A)'), 'relax = ', relax
 	print ('(A12,L)'), 'one = ', one
+	print ('(A12,L)'), 'mt = ', mt
 	print ('(A12,I10)'), 'nemit = ', nemit
 	print ('(A12,I10)'), 'ntime = ', ntime
 	print ('(A12,I10)'), 'maxscat = ', maxscat
@@ -140,7 +148,7 @@ subroutine rununit(disp, relax, one, nemit, ntime, a, b, c, d, tend, T, Thot, Tc
 	print ('(A12,F10.3)'), 'Thot = ', Thot
 	print ('(A12,F10.3)'), 'Tcold = ', Tcold
 	
-	call initunit(disp, relax, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold)
+	call initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold)
 	
 	if (one) then
 		call simulateone(maxscat, maxcoll)

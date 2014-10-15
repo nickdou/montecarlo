@@ -179,7 +179,7 @@ subroutine drawprop(p, q, cdf_arr)
 	integer, intent(out) :: p, q
 	real(8) :: r(2)
 	
-	call random_number(r)
+	call randnum(r)
 	q = searchintvl( getomegacdf(cdf_arr), r(1) )
 	p = searchintvl( getpolcdf(cdf_arr, q), r(2) )
 end subroutine drawprop
@@ -207,7 +207,7 @@ subroutine drawposrect(pos)
 	real(8) :: r(2)
 	
 	pos = 0
-	call random_number(r)
+	call randnum(r)
 	pos(1:2) = r
 end subroutine drawposrect
 
@@ -215,7 +215,7 @@ subroutine drawangiso(dir)
 	real(8), intent(out) :: dir(3)
 	real(8) :: r(2), mu, phi
 	
-	call random_number(r)
+	call randnum(r)
 	mu = 1 - 2*r(1)
 	phi = pi*(1 - 2*r(2))
 	dir = angtodir((/ mu, phi /))
@@ -225,7 +225,7 @@ subroutine drawanghalf(dir)
 	real(8), intent(out) :: dir(3)
 	real(8) :: r(2), mu, phi
 	
-	call random_number(r)
+	call randnum(r)
 	mu = sqrt(1 - r(1))
 	phi = pi*(1 - 2*r(2))
 	dir = angtodir((/ mu, phi /))
@@ -236,7 +236,7 @@ subroutine drawscattime(tscat, p, q)
 	integer, intent(in) :: p, q
 	real(8) :: r
 	
-	call random_number(r)
+	call randnum(r)
 	tscat = -tau_arr(p,q)*log(r)
 end subroutine drawscattime
 

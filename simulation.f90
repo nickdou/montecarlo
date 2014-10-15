@@ -12,9 +12,9 @@ module simulation
 	
 contains
 
-subroutine initisot1d(disp, relax, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+subroutine initisot1d(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
 	character(len=*), intent(in) :: disp, relax
-	logical, intent(in) :: vol, gf
+	logical, intent(in) :: one, mt, vol, gf
 	integer, intent(in) :: nemit, ncell, ntime
 	real(8), intent(in) :: length, side, tend, T, Thot, Tcold
 	integer, parameter :: nbdry = 6
@@ -22,8 +22,13 @@ subroutine initisot1d(disp, relax, vol, gf, nemit, ncell, ntime, length, side, t
 	type(boundary) :: bdry_arr(nbdry)
 	real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
 	integer :: emit_arr(nbdry)
-
-	call initrand()
+	
+	if (one) then
+		call initomp(1)
+	else
+		call initomp()
+	end if
+	call initrand(mt)
 
 	call initmat(disp, relax, T)
 	call initdist()
@@ -56,14 +61,14 @@ subroutine initisot1d(disp, relax, vol, gf, nemit, ncell, ntime, length, side, t
 	print ('(A12,16I10)'),  'emit_arr = ', emit_arr
 end subroutine initisot1d
 
-subroutine initbulk1d(disp, relax, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+subroutine initbulk1d(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
 	character(len=*), intent(in) :: disp, relax
-	logical, intent(in) :: vol, gf
+	logical, intent(in) :: one, mt, vol, gf
 	integer, intent(in) :: nemit, ncell, ntime
 	real(8), intent(in) :: length, side, tend, T, Thot, Tcold
 	real(8) :: zvec(3)
 
-	call initisot1d(disp, relax, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+	call initisot1d(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
 
 	zvec = (/0d0, 0d0, length/)
 	call setbdrypair(1, 4, zvec)
@@ -72,9 +77,9 @@ subroutine initbulk1d(disp, relax, vol, gf, nemit, ncell, ntime, length, side, t
 	print ('(/,A)'), 'Bulk'
 end subroutine initbulk1d
 
-subroutine initfilm(disp, relax, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+subroutine initfilm(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
 	character(len=*), intent(in) :: disp, relax
-	logical, intent(in) :: vol, gf
+	logical, intent(in) :: one, mt, vol, gf
 	integer, intent(in) :: nemit, ncell, ntime
 	real(8), intent(in) :: length, side, tend, T, Thot, Tcold
 	integer, parameter :: nbdry = 6
@@ -83,7 +88,12 @@ subroutine initfilm(disp, relax, vol, gf, nemit, ncell, ntime, length, side, ten
 	real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
 	integer :: emit_arr(nbdry)
 
-	call initrand()
+	if (one) then
+		call initomp(1)
+	else
+		call initomp()
+	end if
+	call initrand(mt)
 
 	call initmat(disp, relax, T)
 	call initdist()
@@ -118,9 +128,9 @@ subroutine initfilm(disp, relax, vol, gf, nemit, ncell, ntime, length, side, ten
 	print ('(A12,16I10)'),   'emit_arr = ', emit_arr
 end subroutine initfilm
 
-subroutine inithollow(disp, relax, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold)
+subroutine inithollow(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold)
 	character(len=*), intent(in) :: disp, relax
-	logical, intent(in) :: vol, gf
+	logical, intent(in) :: one, mt, vol, gf
 	integer, intent(in) :: nemit, ncell, ntime
 	real(8), intent(in) :: length, side, wall, tend, T, Thot, Tcold
 	integer, parameter :: nbdry = 16
@@ -129,7 +139,12 @@ subroutine inithollow(disp, relax, vol, gf, nemit, ncell, ntime, length, side, w
 	real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3), xwall(3), ywall(3)
 	integer :: emit_arr(nbdry)
 
-	call initrand()
+	if (one) then
+		call initomp(1)
+	else
+		call initomp()
+	end if
+	call initrand(mt)
 
 	call initmat(disp, relax, T)
 	call initdist()
@@ -183,8 +198,9 @@ subroutine inithollow(disp, relax, vol, gf, nemit, ncell, ntime, length, side, w
 	print ('(A12,16I10)'),   'emit_arr = ', emit_arr
 end subroutine inithollow
 
-subroutine initunit(disp, relax, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold)
+subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold)
 	character(len=*), intent(in) :: disp, relax
+	logical, intent(in) :: one, mt
 	integer, intent(in) :: nemit, ntime
 	real(8), intent(in) :: a, b, c, d, tend, T, Thot, Tcold
 	integer, parameter :: nbdry = 24
@@ -193,7 +209,12 @@ subroutine initunit(disp, relax, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold)
 	real(8) :: l, bdrydata_arr(nbdry, 10)
 	integer :: i, bc_arr(nbdry), emit_arr(nbdry)
 
-	call initrand()
+	if (one) then
+		call initomp(1)
+	else
+		call initomp()
+	end if
+	call initrand(mt)
 
 	call initmat(disp, relax, T)
 	call initdist()
@@ -253,15 +274,17 @@ subroutine initunit(disp, relax, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold)
 	print ('(/,A)'), 'Unit'
 	print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
 	print ('(A12,ES15.8)'), 'ktheory = ', ktheory
-	print ('(A12,16I10)'),   'emit_arr = ', emit_arr
+	print ('(A12,24I10)'),   'emit_arr = ', emit_arr
 end subroutine initunit
 
 subroutine simulate(nemit, maxscat)
 	integer, intent(in) :: nemit, maxscat
-	integer :: i, nscat
+	integer :: i, nscat, progress
 	real(8) :: t
 	type(phonon) :: phn
 	
+	progress = 0
+	!$omp parallel do private(phn, t, nscat) shared(progress)
 	do i = 1, nemit
 ! 		print ('(/,A,I2)'), 'Particle ', i
 		phn = emit()
@@ -275,8 +298,11 @@ subroutine simulate(nemit, maxscat)
 				call kill(phn)
 			end if
 		end do
-		call showprogress(i, nemit, min(nemit, 20))
+		!$omp atomic
+		progress = progress + 1
+		call showprogress(progress, nemit, min(nemit, 20))
 	end do
+	!$omp end parallel do
 end subroutine simulate
 
 subroutine simulateone(maxscat, maxcoll)
@@ -285,7 +311,7 @@ subroutine simulateone(maxscat, maxcoll)
 	real(8) :: t
 	type(phonon) :: phn
 	integer, parameter :: unit = 2
-
+	
 	phn = emit()
 	call inittraj( 2*maxcoll, getpos(phn) )
 
@@ -301,7 +327,7 @@ subroutine simulateone(maxscat, maxcoll)
 		end if
 	end do
 
-! 	call writematlab( transpose(gettraj()), '(ES16.8)', 2, 'traj', 'x' )
+	call writematlab( transpose(gettraj()), '(ES16.8)', 2, 'traj', 'x' )
 end subroutine simulateone
 
 subroutine writetemp(ncell, ntime)

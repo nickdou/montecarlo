@@ -1,10 +1,10 @@
 module domain
+	use omp_lib
 	use tools
 	use math
 	use distributions
 	implicit none
 	
-! 	public
 	private
 	public  :: SPEC_BC, DIFF_BC, ISOT_BC, PERI_BC, axis, boundary, &
 		makeaxis, setgrid, initrecord, inittraj, appendtraj, gettraj, &
@@ -35,13 +35,14 @@ module domain
 	                      ISOT_BC = 3, &
 	                      PERI_BC = 4
 	
-	real(8) :: tend, tstep, flow(3), Eeff, volume, cumdisp
+	real(8) :: tend, tstep, flow(3), Eeff, volume
 	integer :: ntime, ncell, nbdry, nemit, emitind, ntraj, maxtraj
 	logical :: gridflux, volumetric
 	type(axis) :: grid, vgen
 	real(8), allocatable :: trajectory(:,:)
-	real(8), allocatable :: gridtime_arr(:), griddisp_arr(:)
-	integer, allocatable :: gridloc_arr(:,:)
+	real(8), allocatable :: cumdisp(:)
+	real(8), allocatable :: gridtime_arr(:,:), griddisp_arr(:,:)
+	integer, allocatable :: gridloc_arr(:,:,:)
 	type(boundary), allocatable :: bdry_arr(:)
 	integer, allocatable :: emit_arr(:)
 
@@ -79,13 +80,13 @@ subroutine initrecord(gf, dir)
 	real(8), intent(in) :: dir(3)
 	
 	if (ntime == 0) then
-		allocate( gridtime_arr(ncell) )
+		allocate( gridtime_arr(0:nthreads-1, ncell) )
 ! 		call alloc(gridtime_arr, ncell)
 		gridtime_arr = 0
 	else
 		tstep = tend/ntime
 		
-		allocate( gridloc_arr(ncell, 0:ntime) )
+		allocate( gridloc_arr(0:nthreads-1, ncell, 0:ntime) )
 ! 		call alloc(gridloc_arr, ncell, ntime, (/.false.,.true./))
 		
 		gridloc_arr = 0
@@ -94,10 +95,11 @@ subroutine initrecord(gf, dir)
 	gridflux = gf
 	flow = dir
 	if (gf) then
-		allocate( griddisp_arr(ncell) )
+		allocate( griddisp_arr(0:nthreads-1, ncell) )
 ! 		call alloc(griddisp_arr, ncell)
 		griddisp_arr = 0
 	else
+		allocate( cumdisp(0:nthreads-1) )
 		cumdisp = 0
 	end if
 end subroutine initrecord
@@ -244,13 +246,12 @@ subroutine calculateemit(num)
 	areatemp_arr = (/(bdry_arr(i)%area*abs(bdry_arr(i)%temp), i=1,nbdry)/)
 	sumareatemp = sum(areatemp_arr)
 	
-!	if (.not. allocated(emit_arr)) then
-!		allocate( emit_arr(nbdry) )
-!	else if (size(emit_arr, 1) /= nbdry) then
-!		deallocate( emit_arr )
-!		allocate( emit_arr(nbdry) )
-!	end if
-	allocate( emit_arr(nbdry) )
+	if (.not. allocated(emit_arr)) then
+		allocate( emit_arr(nbdry) )
+	else if (size(emit_arr, 1) /= nbdry) then
+		deallocate( emit_arr )
+		allocate( emit_arr(nbdry) )
+	end if
 ! 	call alloc(emit_arr, nbdry)
 	
 	emit_arr = nint( num*areatemp_arr/sumareatemp )
@@ -290,17 +291,19 @@ subroutine drawemittime(time)
 	if (ntime == 0) then
 		time = 0
 	else
-		call random_number(r)
+		call randnum(r)
 		time = r*tend
 	end if
 end subroutine drawemittime
 
-subroutine drawemitstate(pos, dir, sign)
+subroutine drawemitstate(ind, pos, dir, sign)
+	integer, intent(out) :: ind
 	real(8), intent(out) :: pos(3), dir(3)
 	logical, intent(out) :: sign
 	real(8) :: r
 	
 	if (nemit > 0) then
+		!$omp critical
 		do
 			if (emit_arr(emitind) > 0) then
 				emit_arr(emitind) = emit_arr(emitind) - 1
@@ -310,7 +313,9 @@ subroutine drawemitstate(pos, dir, sign)
 				emitind = emitind + 1
 			end if
 		end do
-	
+		!$omp end critical
+		ind = emitind
+		
 		call drawposrect(pos)
 ! 		pos = (/bdry_arr(emitind)%dx, bdry_arr(emitind)%dy, 1d0/)*pos
 ! 		pos = bdry_arr(emitind)%origin + matmul(bdry_arr(emitind)%rot, pos)
@@ -318,13 +323,15 @@ subroutine drawemitstate(pos, dir, sign)
 			pos(2)*bdry_arr(emitind)%jvec
 		
 		if (volumetric) then
-			call random_number(r)
+			call randnum(r)
+! 			r = 0.99d0 !DEBUG
 			pos = pos - project(pos, vgen%dir)
 			pos = pos + ((1-r)*vgen%lo + r*vgen%hi) * vgen%dir
 		end if
 		
 		call drawanghalf(dir)
 		dir = matmul(bdry_arr(emitind)%rot, dir)
+! 		dir = (/0d0, 0d0, 1d0/) !DEBUG
 		
 		sign = (bdry_arr(emitind)%temp >= 0)
 	end if
@@ -350,20 +357,19 @@ pure subroutine getcoll(pierced, coll, pos1, pos2, tri)
 	end if
 end subroutine getcoll
 
-subroutine updatestate(ind, bc, x, dir, deltax, t, deltat)
-	real(8), intent(inout) :: x(3), dir(3), deltax, t, deltat
-	integer, intent(out) :: ind, bc
+subroutine updatestate(bc, ind, x, dir, v, deltat, t)
+	integer, intent(inout) :: ind
+	real(8), intent(inout) :: x(3), dir(3), v, deltat, t
+	integer, intent(out) :: bc
 	integer :: i
-	real(8) :: v, aim(3), origin(3), ivec(3), jvec(3), inv(3,3), pos1(3), pos2(3)
+	real(8) :: aim(3), origin(3), ivec(3), jvec(3), inv(3,3), pos1(3), pos2(3)
 	logical :: tri, piercedi, pierced(nbdry)
 	real(8) :: colli(3), coll(3,nbdry), dist(nbdry)
 	
-	v = deltax/deltat
 	if (t + deltat > tend) then
 		deltat = tend - t
-		deltax = v*deltat
 	end if
-	aim = x + deltax*dir
+	aim = x + v*deltat*dir
 	
 	do i = 1,nbdry
 		origin = bdry_arr(i)%origin
@@ -378,17 +384,22 @@ subroutine updatestate(ind, bc, x, dir, deltax, t, deltat)
 		
 		pierced(i) = piercedi
 		coll(:,i) = origin + colli(1)*ivec + colli(2)*jvec
-		dist(i) = normtwo(colli - pos1)
+		dist(i) = normtwo(coll(:,i) - x)
 	end do
 	
+	if (ind /= 0) then
+		pierced(ind) = .false.
+	end if
 	ind = minloc(dist, 1, pierced)
+! 	print *, dist
+! 	print *, pierced
+	
 	bc = 0
 	if (ind == 0) then
 		x = aim
 	else
 		bc = bdry_arr(ind)%bc
-		deltax = dist(ind)
-		deltat = deltax / v
+		deltat = dist(ind) / v
 		x = coll(:,ind)
 	end if
 	
@@ -399,8 +410,9 @@ subroutine updatestate(ind, bc, x, dir, deltax, t, deltat)
 	end if
 end subroutine updatestate
 
-subroutine applybc(ind, bc, x, dir)
-	integer, intent(in) :: ind, bc
+subroutine applybc(bc, ind, x, dir)
+	integer, intent(in) :: bc
+	integer, intent(inout) :: ind
 	real(8), intent(inout) :: x(3), dir(3)
 	
 	if (bc /= 0 .and. any(dir /= 0, 1)) then
@@ -414,6 +426,7 @@ subroutine applybc(ind, bc, x, dir)
 			dir = 0
 		case (PERI_BC)
 			x = x + bdry_arr(ind)%pairmv
+			ind = bdry_arr(ind)%pair
 		end select
 	end if
 end subroutine applybc
@@ -468,22 +481,24 @@ end subroutine applybc
 !end subroutine recordtime
 
 subroutine incgrid(cum_arr, val, ind1, ind2)
-	real(8), intent(inout) :: cum_arr(:)
+	real(8), intent(inout) :: cum_arr(:,:)
 	real(8), intent(in) :: val
 	integer, intent(in) :: ind1
 	integer, intent(in), optional :: ind2
+	integer :: threadi = 0
 	
+!$ 	threadi = omp_get_thread_num()
 	if (present(ind2)) then
 		if (ind1 <= ind2) then
-			cum_arr(ind1:ind2) = cum_arr(ind1:ind2) + val
+			cum_arr(threadi, ind1:ind2) = cum_arr(threadi, ind1:ind2) + val
 		end if
 	else
-		cum_arr(ind1) = cum_arr(ind1) + val
+		cum_arr(threadi, ind1) = cum_arr(threadi, ind1) + val
 	end if
 end subroutine incgrid
 
 subroutine recordgrid(cum_arr, sign, delta, coordold, coordnew)
-	real(8), intent(inout) :: cum_arr(:)
+	real(8), intent(inout) :: cum_arr(:,:)
 	logical, intent(in) :: sign
 	real(8), intent(in) :: delta, coordold, coordnew
 	real(8) :: dcoord
@@ -533,7 +548,9 @@ subroutine recordloc(sign, t, deltat, xold, xnew)
 	real(8), intent(in) :: t, deltat, xold(3), xnew(3)
 	real(8) :: xi
 	integer :: pm, told, tnew, tind, xind
+	integer :: threadi = 0
 	
+!$ 	threadi = omp_get_thread_num()
 	if (ntime /= 0) then
 		pm = signtoint(sign)
 		
@@ -547,7 +564,7 @@ subroutine recordloc(sign, t, deltat, xold, xnew)
 			do tind = told, tnew
 				xi = (t - tind*tstep)/deltat
 				xind = getxind(xold*xi + xnew*(1 - xi))
-				gridloc_arr(xind, tind) = gridloc_arr(xind, tind) + pm
+				gridloc_arr(threadi, xind, tind) = gridloc_arr(threadi, xind, tind) + pm
 			end do
 		end if
 	end if
@@ -556,46 +573,49 @@ end subroutine recordloc
 subroutine addcumdisp_real(sign, deltax)
 	logical, intent(in) :: sign
 	real(8), intent(in) :: deltax(3)
-	integer :: pm
+	integer :: pm, threadi = 0
 	
+!$ 	threadi = omp_get_thread_num()
 	if (.not. gridflux) then
 		pm = signtoint(sign)
-		cumdisp = cumdisp + pm*dot_product(flow, deltax)
+		cumdisp(threadi) = cumdisp(threadi) + pm*dot_product(flow, deltax)
+! 		print *, 'addcumdisp', deltax
 	end if
 end subroutine addcumdisp_real
 
 subroutine addcumdisp_int(sign, ind)
 	logical, intent(in) :: sign
 	integer, intent(in) :: ind
-	integer :: pm
+	integer :: pm, threadi = 0
 	
+!$ 	threadi = omp_get_thread_num()
 	if (.not. gridflux) then
 		pm = signtoint(sign)
-		cumdisp = cumdisp - pm*dot_product(flow, bdry_arr(ind)%pairmv)
+		cumdisp(threadi) = cumdisp(threadi) - pm*dot_product(flow, bdry_arr(ind)%pairmv)
 	end if
 end subroutine addcumdisp_int
 
 pure function getsteadytemp() result(T)
 	real(8) :: T(ncell)
 	
-	T = Eeff*ncell/(volume*tend*getpseudoenergy()) * gridtime_arr
+	T = Eeff*ncell/(volume*tend*getpseudoenergy()) * sum(gridtime_arr, 1)
 end function getsteadytemp
 
 pure function gettranstemp() result(T)
 	real(8) :: T(ncell, 0:ntime)
 	
-	T = Eeff*ncell/(volume*getpseudoenergy()) * gridloc_arr
+	T = Eeff*ncell/(volume*getpseudoenergy()) * sum(gridloc_arr, 1)
 end function gettranstemp
 
 real(8) pure function getflux() result(flux)
 	
-	flux = Eeff/(volume*tend) * cumdisp
+	flux = Eeff/(volume*tend) * sum(cumdisp)
 end function getflux
 
 pure function getgridflux() result(flux)
 	real(8) :: flux(ncell)
 	
-	flux = Eeff*ncell/(volume*tend) * griddisp_arr
+	flux = Eeff*ncell/(volume*tend) * sum(griddisp_arr, 1)
 end function getgridflux
 
 end module domain

@@ -4,8 +4,10 @@ program testmath
 	use math
 	implicit none
 	
-	call initrand()
+	call initomp()
+	call initrand(.true.)
 ! 	call printconst()
+	call testrand(100, 100000)
 ! 	call testprintarray(5, 5)
 ! 	call testwritematlab(5, 5)
 ! 	call testcumsum(5, 5)
@@ -15,7 +17,7 @@ program testmath
 ! 	call testunitvec()
 ! 	call testproject()
 ! 	call testcrossproduct()
-	call testinverse2()
+! 	call testinverse2()
 ! 	call testangdir()
 contains
 
@@ -24,6 +26,40 @@ subroutine printconst()
 	print ('(A10, ES25.17)'), 'hbar = ', hbar
 	print ('(A10, ES25.17)'), 'kb = ', kb
 end subroutine printconst
+
+subroutine testrand(niters, nx)
+	integer, intent(in) :: niters, nx
+	integer :: i
+	real(8) :: mean(niters), mu, sigma
+	
+	!$omp parallel do
+	do i = 1, niters
+		mean(i) = mc(nx)
+	end do
+	!$omp end parallel do
+	
+	mu = sum(mean)/niters
+	sigma = sqrt(sum((mean - mu)**2))/niters
+	
+	print *, '    mu = ', mu
+	print *, ' sigma = ', sigma
+end subroutine testrand
+
+real(8) function mc(nx) result(mean)
+	integer, intent(in) :: nx
+	integer :: i
+	real(8) :: x_arr(nx), cum
+
+! 	cum = 0d0
+! 	do i = 1,nx
+! 		call randnum(x)
+! 		cum = cum + x
+! 	end do
+	
+	call randnum(x_arr)
+	cum = sum(x_arr)
+	mean = cum/nx
+end function mc
 
 subroutine testprintarray(m, n)
 	integer, intent(in) :: m, n
@@ -87,7 +123,7 @@ subroutine testsearchintvl()
 ! 	call printarray(cdf, '(F8.3)', row=.true.)
 	
 	do i = 1, N
-		call random_number(r)
+		call randnum(r)
 		print ('(F8.3,2I6)'), r, ceiling(r*m), searchintvl(cdf, r)
 	end do
 	
@@ -119,7 +155,7 @@ end subroutine testunitvec
 subroutine testproject()
 	real(8) :: a(3), b(3)
 	
-!	call random_number(a)
+!	call randnum(a)
 	a = (/1, 0, 0/)
 	b = (/0, 0, 0/)
 	call printarray(a, '(F8.3)', row=.true.)
@@ -130,7 +166,7 @@ end subroutine testproject
 subroutine testcrossproduct()
 	real(8) :: a(3), b(3)
 	
-!	call random_number(a)
+!	call randnum(a)
 	a = (/-1, 0, 0/)
 	b = (/0, 1, 0/)
 	call printarray(a, '(F8.3)', row=.true.)
@@ -138,19 +174,10 @@ subroutine testcrossproduct()
 	call printarray(cross_product(a, b), '(F8.3)', row=.true.)
 end subroutine testcrossproduct
 
-subroutine testinverse2()
-	real(8) :: mat(2,2), inv(2,2)
-
-	call random_number(mat)
-! 	mat = reshape((/1d0, 2d0, 3d0, 4d0/), (/2,2/))
-	inv = inverse2(mat)
-	call printarray(matmul(mat,inv), '(ES16.8)')
-end subroutine testinverse2
-
 subroutine testangdir()
 	real(8) :: ang(2), ang2(2), dir(3)
 	
-	call random_number(ang)
+	call randnum(ang)
 	ang = 1 - 2*ang
 !	ang = (/0, 0/)
 	dir = angtodir(ang)
