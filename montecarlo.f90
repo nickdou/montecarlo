@@ -16,12 +16,9 @@ program montecarlo
 	character(len=*), parameter :: disp  = './input/Si_disp.txt'
 	character(len=*), parameter :: relax = './input/Si_relax.txt'
 	
-!$ 	nthreads = omp_get_max_threads()
-!$ 	print ('(A,I3,A,/)'), 'OMP enabled, ', nthreads, ' threads available'
-	
 	one = .false.
 	mt = .true.
-	vol = .true.
+	vol = .false.
 	gf  = .false.
 	
 	nemit = 10000000
@@ -51,7 +48,7 @@ program montecarlo
 !	print ('(A12)'), 'k = '
 !	call printarray(transpose(cond), '(ES16.8)')
 	
-	call run(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold, maxscat, maxcoll, k)
+! 	call run(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold, maxscat, maxcoll, k)
 	
 	one = .false.
 	mt = .true.
@@ -60,16 +57,16 @@ program montecarlo
 	a = 0.8d-6
 	b = 0.2d-6
 	c = 8.0d-6
-	d = 40.d-9
+	d = 10.d-9
 	tend = 100d-9
 	T = 300d0
 	Thot = 3d0
 	Tcold = -3d0
 	
-	maxscat = 100
+	maxscat = 1000
 	maxcoll = 2*maxscat
 	
-! 	call rununit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold, maxscat, maxcoll, k)
+	call rununit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold, maxscat, maxcoll, k)
 	
 contains
 

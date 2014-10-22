@@ -8,7 +8,8 @@ module domain
 	private
 	public  :: SPEC_BC, DIFF_BC, ISOT_BC, PERI_BC, axis, boundary, &
 		makeaxis, setgrid, initrecord, inittraj, appendtraj, gettraj, &
-		makebdry, setbdry, setbdrypair, calculateemit, setvolumetric, getemit, geteeff, &
+		makebdry, makebdry_arr, setbdry, setbdrypair, &
+		calculateemit, setvolumetric, getemit, geteeff, &
 		drawemittime, drawemitstate, updatestate, applybc, &
 		recordtime, recorddisp, recordloc, addcumdisp, &
 		getsteadytemp, gettranstemp, getflux, getgridflux
@@ -203,6 +204,25 @@ type(boundary) pure function makebdry(bc, origin, ivec, jvec, temp, tri) result(
 	bdry%pairmv = 0d0
 end function makebdry
 
+pure function makebdry_arr(verts, bcs, faces, temps, tris) result(bdry_arr)
+	real(8), intent(in) :: verts(:,:), temps(:)
+	integer, intent(in) :: bcs(:), faces(:,:)
+	logical, intent(in) :: tris(:)
+	type(boundary), allocatable :: bdry_arr(:)
+	integer :: i, n
+	real(8) :: origin(3), ivec(3), jvec(3)
+	
+	n = size(bcs,1)
+	allocate( bdry_arr(n) )
+	do i = 1,n
+		origin = verts(:,faces(2,i))
+		ivec = verts(:,faces(1,i)) - origin
+		jvec = verts(:,faces(3,i)) - origin
+		bdry_arr(i) = makebdry(bcs(i), origin, ivec, jvec, temps(i), tris(i))
+	end do
+	
+end function makebdry_arr
+
 subroutine setbdry(arr, vol)
 	type(boundary), intent(in) :: arr(:)
 	real(8), intent(in) :: vol
@@ -337,23 +357,42 @@ subroutine drawemitstate(ind, pos, dir, sign)
 	end if
 end subroutine drawemitstate
 
-pure subroutine getcoll(pierced, coll, pos1, pos2, tri)
-	real(8), intent(in) :: pos1(3), pos2(3)
+! pure subroutine getcoll(pierced, coll, pos1, pos2, tri)
+! 	real(8), intent(in) :: pos1(3), pos2(3)
+! 	logical, intent(in) :: tri
+! 	logical, intent(out) :: pierced
+! 	real(8), intent(out) :: coll(3)
+! 	real(8) :: k1, k2
+!
+! 	k1 = pos1(3)
+! 	k2 = pos2(3)
+! 	coll = (k2*pos1 - k1*pos2)/(k2 - k1)
+!
+! 	if (k1*k2 > 0) then
+! 		pierced = .false.
+! 	else if (tri) then
+! 		pierced = all(coll(1:2) >= 0) .and. sum(coll(1:2)) <= 1
+! 	else
+! 		pierced = all(coll(1:2) >= 0 .and. coll(1:2) <= 1)
+! 	end if
+! end subroutine getcoll
+
+pure subroutine getcoll(pierced, coll, x, dir, tri)
+	real(8), intent(in) :: x(3), dir(3)
 	logical, intent(in) :: tri
 	logical, intent(out) :: pierced
-	real(8), intent(out) :: coll(3)
-	real(8) :: k1, k2
+	real(8), intent(out) :: coll(2)
+	real(8) :: dist
 	
-	k1 = pos1(3)
-	k2 = pos2(3)
-	coll = (k2*pos1 - k1*pos2)/(k2 - k1)
+	dist = -x(3)/dir(3)
+	coll = x(1:2) + dist*dir(1:2)
 	
-	if (k1*k2 > 0) then
+	if (dist < 0) then
 		pierced = .false.
 	else if (tri) then
-		pierced = all(coll(1:2) >= 0) .and. sum(coll(1:2)) <= 1
+		pierced = all(coll >= 0) .and. sum(coll) <= 1
 	else
-		pierced = all(coll(1:2) >= 0 .and. coll(1:2) <= 1)
+		pierced = all(coll >= 0 .and. coll <= 1)
 	end if
 end subroutine getcoll
 
@@ -362,46 +401,57 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
 	real(8), intent(inout) :: x(3), dir(3), v, deltat, t
 	integer, intent(out) :: bc
 	integer :: i
-	real(8) :: aim(3), origin(3), ivec(3), jvec(3), inv(3,3), pos1(3), pos2(3)
-	logical :: tri, piercedi, pierced(nbdry)
-	real(8) :: colli(3), coll(3,nbdry), dist(nbdry)
+! 	real(8) :: aim(3), origin(3), ivec(3), jvec(3), inv(3,3), pos1(3), pos2(3)
+	real(8) :: xi(3), diri(3)
+! 	logical :: tri, piercedi, pierced(nbdry)
+	logical :: pierced(0:nbdry)
+! 	real(8) :: colli(3), coll(3,nbdry), dist(nbdry)
+	real(8) :: colli(2), coll(3, 0:nbdry), dt(0:nbdry)
 	
-	if (t + deltat > tend) then
-		deltat = tend - t
-	end if
-	aim = x + v*deltat*dir
+! 	if (t + deltat > tend) then
+! 		deltat = tend - t
+! 	end if
+! 	aim = x + v*deltat*dir
+	dt(0) = min(deltat, tend - t)
+	coll(:,0) = x + v*dt(0)*dir
 	
 	do i = 1,nbdry
-		origin = bdry_arr(i)%origin
-		ivec = bdry_arr(i)%ivec
-		jvec = bdry_arr(i)%jvec
-		inv = bdry_arr(i)%inv
-		tri = bdry_arr(i)%tri
+! 		origin = bdry_arr(i)%origin
+! 		ivec = bdry_arr(i)%ivec
+! 		jvec = bdry_arr(i)%jvec
+! 		inv = bdry_arr(i)%inv
+! 		tri = bdry_arr(i)%tri
+!
+! 		pos1 = matmul(inv, x - origin)
+! 		pos2 = matmul(inv, aim - origin)
+! 		call getcoll(piercedi, colli, pos1, pos2, tri)
+!
+! 		pierced(i) = piercedi
+! 		coll(:,i) = origin + colli(1)*ivec + colli(2)*jvec
+! 		dist(i) = normtwo(coll(:,i) - x)
 		
-		pos1 = matmul(inv, x - origin)
-		pos2 = matmul(inv, aim - origin)
-		call getcoll(piercedi, colli, pos1, pos2, tri)
+		xi = matmul(bdry_arr(i)%inv, x - bdry_arr(i)%origin)
+		diri = matmul(bdry_arr(i)%inv, dir)
+		call getcoll(pierced(i), colli, xi, diri, bdry_arr(i)%tri)
 		
-		pierced(i) = piercedi
-		coll(:,i) = origin + colli(1)*ivec + colli(2)*jvec
-		dist(i) = normtwo(coll(:,i) - x)
+		coll(:,i) = bdry_arr(i)%origin + &
+			colli(1)*bdry_arr(i)%ivec + colli(2)*bdry_arr(i)%jvec
+		dt(i) = normtwo(coll(:,i) - x)/v
 	end do
 	
-	if (ind /= 0) then
-		pierced(ind) = .false.
-	end if
-	ind = minloc(dist, 1, pierced)
-! 	print *, dist
+	pierced(ind) = .false.
+	pierced(0) = .true.
+	ind = minloc(dt, 1, pierced) - 1 !subtract one because of zero index
+! 	print *, dt
 ! 	print *, pierced
 	
-	bc = 0
 	if (ind == 0) then
-		x = aim
+		bc = 0
 	else
 		bc = bdry_arr(ind)%bc
-		deltat = dist(ind) / v
-		x = coll(:,ind)
 	end if
+	x = coll(:,ind)
+	deltat = dt(ind)
 	
 	t = t + deltat
 	if (t >= tend) then
@@ -528,7 +578,7 @@ subroutine recordtime(sign, deltat, xold, xnew)
 	real(8), intent(in) :: deltat, xold(3), xnew(3)
 	
 	if (ntime == 0) then
-		call recordgrid(gridtime_arr, sign, deltat, getcoord(xold), getcoord(xnew))
+		call recordgrid(gridtime_arr, sign, deltat, getxind(xold), getxind(xnew))
 	end if
 end subroutine recordtime
 
@@ -539,7 +589,7 @@ subroutine recorddisp(sign, xold, xnew)
 	
 	if (gridflux) then
 		disp = dot_product(xnew - xold, flow) 
-		call recordgrid(griddisp_arr, sign, disp, getcoord(xold), getcoord(xnew))
+		call recordgrid(griddisp_arr, sign, disp, getxind(xold), getxind(xnew))
 	end if
 end subroutine recorddisp
 

@@ -203,11 +203,14 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
 	logical, intent(in) :: one, mt
 	integer, intent(in) :: nemit, ntime
 	real(8), intent(in) :: a, b, c, d, tend, T, Thot, Tcold
-	integer, parameter :: nbdry = 24
+	integer, parameter :: nvert = 50
+	integer, parameter :: nbdry = 34
 	type(axis) :: grid, vgen
 	type(boundary) :: bdry_arr(nbdry)
-	real(8) :: l, bdrydata_arr(nbdry, 10)
-	integer :: i, bc_arr(nbdry), emit_arr(nbdry)
+! 	real(8) :: l, bdrydata_arr(nbdry, 10)
+	real(8) :: l, vertshi(3, nvert/2), verts(3, nvert), temps(nbdry), mv(3)
+	integer :: i, bdrys(4, nbdry), emit_arr(nbdry)
+	logical :: tris(nbdry)
 
 	if (one) then
 		call initomp(1)
@@ -221,49 +224,132 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
 
 	l = c/4d0*sqrt(2d0)
 
-	grid = makeaxis((/0d0, 0d0, 1d0/), -l, 0d0, 1) ! ncell = 1
+	grid = makeaxis((/0d0, 0d0, 1d0/), -l, l, 1) ! ncell = 1
 	call setgrid(tend, ntime, grid)
 	call initrecord(.false., (/0d0, 0d0, 1d0/)) ! gf = .false.
 
-	bdrydata_arr = transpose(reshape((/ &
-		   -d, 0d0,   -l,       d,    0d0,  0d0,   0d0,      b,   0d0,  Thot, &
-		   -d,   b,   -l, 2*a+2*d,    0d0,  0d0,   0d0,      d,   0d0,  Thot, &
-		  2*a, 0d0,   -l,       d,    0d0,  0d0,   0d0,      b,   0d0,  Thot, &
-		   -d, 0d0,   -l,     0d0,    b+d,  0d0,   0d0,    0d0,   l-a,   0d0, &
-		   -d, b+d,   -l,   a+2*d,    0d0,  0d0,   0d0,    0d0, l-a-d,   0d0, &
-		  a+d, b+d,   -l,       a,    0d0,  0d0,   0d0,    0d0,     l,   0d0, &
-		2*a+d, b+d,   -l,     0d0,   -b-d,  0d0,   0d0,    0d0,     l,   0d0, &
-		2*a+d, 0d0,   -l,      -d,    0d0,  0d0,   0d0,    0d0,     l,   0d0, &
-		  2*a, 0d0,   -l,     0d0,      b,  0d0,   0d0,    0d0,     l,   0d0, &
-		  2*a,   b,   -l,      -a,    0d0,  0d0,   0d0,    0d0,     l,   0d0, &
-		    a,   b,   -l,      -a,    0d0,  0d0,   0d0,    0d0,   l-a,   0d0, &
-		  0d0,   b,   -l,     0d0,     -b,  0d0,   0d0,    0d0,   l-a,   0d0, &
-		  0d0, 0d0,   -l,      -d,    0d0,  0d0,   0d0,    0d0,   l-a,   0d0, &
-		  0d0, 0d0,   -a,      -d,    0d0,  0d0,   0d0,      b,   0d0,   0d0, &
-		   -d,   l,   -a,     0d0, -l+b+d,  0d0,   0d0,    0d0,    -d,   0d0, &
-		   -d,   l, -a-d,     0d0, -l+b+d,  0d0, a+2*d,    0d0,   0d0,   0d0, &
-		   -d,   l, -a-d,     a+d,    0d0,  0d0,   0d0,    0d0,     d,   0d0, &
-		   -d,   l,   -a,     a+d,    0d0,  0d0,   0d0,   -l+b,   0d0,   0d0, &
-		    a,   l,   -a,     0d0,    0d0,    a,   0d0,   -l+b,   0d0,   0d0, &
-		    a,   l,  0d0,     0d0,    0d0, -a-d,     d,    0d0,   0d0,   0d0, &
-		  a+d,   l,  0d0,     0d0,    0d0, -a-d,   0d0, -l+b+d,   0d0,   0d0, &
-		    a,   l,  0d0,       d,    0d0,  0d0,   0d0,   -l+b,   0d0, Tcold, &
-		  a+d,   b,  0d0,     0d0,      d,  0d0,     a,    0d0,   0d0, Tcold, &
-		  2*a,   b,  0d0,       d,    0d0,  0d0,   0d0,     -b,   0d0, Tcold  &
-		/), (/10, nbdry/)))
-
-	bc_arr = (/ ISOT_BC, ISOT_BC, ISOT_BC, &
-		DIFF_BC, DIFF_BC, DIFF_BC, DIFF_BC, SPEC_BC, &
-		DIFF_BC, DIFF_BC, DIFF_BC, DIFF_BC, SPEC_BC, SPEC_BC, &
-		SPEC_BC, DIFF_BC, SPEC_BC, DIFF_BC, DIFF_BC, SPEC_BC, DIFF_BC, &
-		ISOT_BC, ISOT_BC, ISOT_BC /)
-
-	do i = 1,nbdry
-		bdry_arr(i) = makebdry(bc_arr(i), bdrydata_arr(i,1:3), bdrydata_arr(i,4:6), bdrydata_arr(i,7:9), bdrydata_arr(i,10))
+! 	bdrydata_arr = transpose(reshape((/ &
+! 		   -d, 0d0,   -l,       d,    0d0,  0d0,   0d0,      b,   0d0,  Thot, &
+! 		   -d,   b,   -l, 2*a+2*d,    0d0,  0d0,   0d0,      d,   0d0,  Thot, &
+! 		  2*a, 0d0,   -l,       d,    0d0,  0d0,   0d0,      b,   0d0,  Thot, &
+! 		   -d, 0d0,   -l,     0d0,    b+d,  0d0,   0d0,    0d0,   l-a,   0d0, &
+! 		   -d, b+d,   -l,   a+2*d,    0d0,  0d0,   0d0,    0d0, l-a-d,   0d0, &
+! 		  a+d, b+d,   -l,       a,    0d0,  0d0,   0d0,    0d0,     l,   0d0, &
+! 		2*a+d, b+d,   -l,     0d0,   -b-d,  0d0,   0d0,    0d0,     l,   0d0, &
+! 		2*a+d, 0d0,   -l,      -d,    0d0,  0d0,   0d0,    0d0,     l,   0d0, &
+! 		  2*a, 0d0,   -l,     0d0,      b,  0d0,   0d0,    0d0,     l,   0d0, &
+! 		  2*a,   b,   -l,      -a,    0d0,  0d0,   0d0,    0d0,     l,   0d0, &
+! 		    a,   b,   -l,      -a,    0d0,  0d0,   0d0,    0d0,   l-a,   0d0, &
+! 		  0d0,   b,   -l,     0d0,     -b,  0d0,   0d0,    0d0,   l-a,   0d0, &
+! 		  0d0, 0d0,   -l,      -d,    0d0,  0d0,   0d0,    0d0,   l-a,   0d0, &
+! 		  0d0, 0d0,   -a,      -d,    0d0,  0d0,   0d0,      b,   0d0,   0d0, &
+! 		   -d,   l,   -a,     0d0, -l+b+d,  0d0,   0d0,    0d0,    -d,   0d0, &
+! 		   -d,   l, -a-d,     0d0, -l+b+d,  0d0, a+2*d,    0d0,   0d0,   0d0, &
+! 		   -d,   l, -a-d,     a+d,    0d0,  0d0,   0d0,    0d0,     d,   0d0, &
+! 		   -d,   l,   -a,     a+d,    0d0,  0d0,   0d0,   -l+b,   0d0,   0d0, &
+! 		    a,   l,   -a,     0d0,    0d0,    a,   0d0,   -l+b,   0d0,   0d0, &
+! 		    a,   l,  0d0,     0d0,    0d0, -a-d,     d,    0d0,   0d0,   0d0, &
+! 		  a+d,   l,  0d0,     0d0,    0d0, -a-d,   0d0, -l+b+d,   0d0,   0d0, &
+! 		    a,   l,  0d0,       d,    0d0,  0d0,   0d0,   -l+b,   0d0, Tcold, &
+! 		  a+d,   b,  0d0,     0d0,      d,  0d0,     a,    0d0,   0d0, Tcold, &
+! 		  2*a,   b,  0d0,       d,    0d0,  0d0,   0d0,     -b,   0d0, Tcold  &
+! 		/), (/10, nbdry/)))
+!
+! 	bc_arr = (/ ISOT_BC, ISOT_BC, ISOT_BC, &
+! 		DIFF_BC, DIFF_BC, DIFF_BC, DIFF_BC, SPEC_BC, &
+! 		DIFF_BC, DIFF_BC, DIFF_BC, DIFF_BC, SPEC_BC, SPEC_BC, &
+! 		SPEC_BC, DIFF_BC, SPEC_BC, DIFF_BC, DIFF_BC, SPEC_BC, DIFF_BC, &
+! 		ISOT_BC, ISOT_BC, ISOT_BC /)
+!
+! 	do i = 1,nbdry
+! 		bdry_arr(i) = makebdry(bc_arr(i), bdrydata_arr(i,1:3), bdrydata_arr(i,4:6), bdrydata_arr(i,7:9), bdrydata_arr(i,10))
+! 	end do
+	
+	vertshi = reshape((/ &
+		  0d0, 0d0,   l, & 
+		  0d0,   b,   l, &
+		  2*a,   b,   l, &
+		  2*a, 0d0,   l, &
+		2*a+d, 0d0,   l, &
+		2*a+d,   b,   l, &
+		2*a+d, b+d,   l, &
+		   -d, b+d,   l, &
+		   -d,   b,   l, &
+		   -d, 0d0,   l, &
+		  2*a,   b,   a, &
+		    a,   b,   a, &
+		  0d0,   b,   a, &
+		  0d0, 0d0,   a, &
+		   -d, 0d0,   a, &
+		   -d,   b,   a, &
+		   -d, b+d,   a, &
+		   -d, b+d, a+d, &
+		  a+d, b+d, a+d, &
+		2*a+d, b+d, a+d, &
+		    a,   l,   a, &
+		   -d,   l,   a, &
+		   -d,   l, a+d, &
+		    a,   l, a+d, &
+		  a+d,   l, a+d &
+		/), (/3, nvert/2/))
+	
+	do i = 1,nvert/2
+		verts(:,i) = vertshi(:,i)
+		verts(1:2,nvert-i+1) = vertshi(1:2,i)
+		verts(3,nvert-i+1) = -vertshi(3,i)
 	end do
-
-	call setbdry(bdry_arr, d*(a+b+d)*(2*l-a) + 2*d*(a+d)*(l-b-d))
-
+	
+	bdrys = reshape((/ &
+		 1,  2,  9, PERI_BC, & !01
+         3,  4,  5, PERI_BC, & !02
+         6,  7,  8, PERI_BC, & !03
+         3,  2, 13, DIFF_BC, & !04
+         2,  1, 14, DIFF_BC, & !05
+         1, 10, 15, SPEC_BC, & !06
+        10,  8, 17, DIFF_BC, & !07
+         8,  7, 20, DIFF_BC, & !08
+        13, 14, 15, SPEC_BC, & !09
+        12, 16, 22, DIFF_BC, & !10
+        17, 18, 23, SPEC_BC, & !11
+        21, 22, 23, SPEC_BC, & !12
+        18, 19, 25, DIFF_BC, & !13
+        11, 12, 39, DIFF_BC, & !14
+        12, 21, 30, DIFF_BC, & !15
+        24, 25, 26, SPEC_BC, & !16
+        25, 19, 32, DIFF_BC, & !17
+        19, 20, 31, DIFF_BC, & !18
+         7,  5, 46, DIFF_BC, & !19
+         5,  4, 47, SPEC_BC, & !20
+         4,  3, 48, DIFF_BC, & !21
+        32, 33, 28, DIFF_BC, & !22
+        27, 28, 29, SPEC_BC, & !23
+        33, 34, 29, SPEC_BC, & !24
+        35, 39, 30, DIFF_BC, & !25
+        35, 36, 37, SPEC_BC, & !26
+        33, 31, 44, DIFF_BC, & !27
+        36, 34, 43, DIFF_BC, & !28
+        37, 36, 41, SPEC_BC, & !29
+        38, 37, 50, DIFF_BC, & !30
+        40, 38, 49, DIFF_BC, & !31
+        42, 43, 44, PERI_BC, & !32
+        45, 46, 47, PERI_BC, & !33
+        41, 42, 49, PERI_BC &  !34
+		/), (/4, nbdry/))
+	
+	temps = 0d0
+	temps(1:3) = Tcold
+	temps(nbdry-2:nbdry) = Thot
+	tris = .false.
+	
+	bdry_arr = makebdry_arr(verts, bdrys(4,:), bdrys(1:3,:), temps, tris)
+	
+	call setbdry(bdry_arr, 2*d*(a+b+d)*(2*l-a) + 4*d*(a+d)*(l-b-d))
+	
+	mv = (/0d0, 0d0, -2*l/)
+	call setbdrypair(1, nbdry, mv)
+	call setbdrypair(2, nbdry-1, mv)
+	call setbdrypair(3, nbdry-2, mv)
+	
 	call calculateemit(nemit)
 
 	! No volumetric generation
@@ -274,7 +360,7 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
 	print ('(/,A)'), 'Unit'
 	print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
 	print ('(A12,ES15.8)'), 'ktheory = ', ktheory
-	print ('(A12,24I10)'),   'emit_arr = ', emit_arr
+	print ('(A12,34I10)'),   'emit_arr = ', emit_arr
 end subroutine initunit
 
 subroutine simulate(nemit, maxscat)
@@ -298,9 +384,10 @@ subroutine simulate(nemit, maxscat)
 				call kill(phn)
 			end if
 		end do
-		!$omp atomic
+		!$omp critical
 		progress = progress + 1
 		call showprogress(progress, nemit, min(nemit, 20))
+		!$omp end critical
 	end do
 	!$omp end parallel do
 end subroutine simulate

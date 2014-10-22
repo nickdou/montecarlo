@@ -34,10 +34,9 @@ contains
 subroutine initomp(n)
 	integer, intent(in), optional :: n
 	
+!$ 	nthreads = omp_get_max_threads()
 !$ 	if (present(n)) then
-!$ 		nthreads = n
-!$ 	else
-!$ 		nthreads = omp_get_max_threads()
+!$ 		nthreads = min(nthreads, n)
 !$ 	end if
 !$ 	print ('(A,I2,A,/)'), 'OMP enabled, ', nthreads, ' threads available'
 end subroutine
