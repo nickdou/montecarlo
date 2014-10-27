@@ -344,12 +344,6 @@ subroutine drawemitstate(ind, pos, dir, sign)
     end if
     !$omp end critical
     
-    if (ind > nbdry) then
-        print *, 'error: drawemitstate: ind = ', ind
-        print *, 'emit_arr = ', emit_arr
-        print *, 'isdone = ', isdone
-    end if
-    
     if (.not. isdone) then
         call drawposrect(pos)
     !       pos = (/bdry_arr(ind)%dx, bdry_arr(ind)%dy, 1d0/)*pos
@@ -455,11 +449,6 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     pierced(ind) = .false.
     pierced(0) = .true.
     ind = minloc(dt, 1, pierced) - 1 !subtract one because of zero index
-    if (ind > nbdry) then
-        print *, 'error: updatestate: ind = ', ind
-        print *, 'dt = ', dt
-        print *, 'pierced = ', pierced
-    end if
 !   print *, dt
 !   print *, pierced
     
@@ -482,7 +471,6 @@ subroutine applybc(bc, ind, x, dir)
     integer, intent(in) :: bc
     integer, intent(inout) :: ind
     real(8), intent(inout) :: x(3), dir(3)
-    integer :: pair
     
     if (bc /= 0 .and. any(abs(dir) >= eps, 1)) then
         select case (bc)
@@ -495,12 +483,7 @@ subroutine applybc(bc, ind, x, dir)
             dir = 0
         case (PERI_BC)
             x = x + bdry_arr(ind)%pairmv
-            pair = bdry_arr(ind)%pair
-            if (pair > nbdry) then
-                print *, 'error: applybc: ind = ', ind
-                print *, 'pair = ', pair
-            end if
-            ind = pair
+            ind = bdry_arr(ind)%pair
         end select
     end if
 end subroutine applybc

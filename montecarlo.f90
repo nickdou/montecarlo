@@ -16,7 +16,7 @@ program montecarlo
     
     call parsecmdargs()
     
-    call getarg(1, whichsim)
+    call get_command_argument(1, whichsim)
     select case (whichsim)
         case ('isot')
             call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
@@ -93,8 +93,8 @@ subroutine parsecmdargs()
     Thot = 3d0
     Tcold = -3d0
     
-    do i = 2, iargc()
-        call getarg(i, input)
+    do i = 2, command_argument_count()
+        call get_command_argument(i, input)
         eqsign = index(input, '=')
         inplen = len_trim(input)
         
@@ -161,28 +161,28 @@ end subroutine parsecmdargs
 subroutine printargs(isused)
     logical, intent(in) :: isused(22)
     
-    if (isused(1))  print ('(A12,A)'), 'disp = ', trim(disp)
-    if (isused(2))  print ('(A12,A)'), 'relax = ', trim(relax)
-    if (isused(3))  print ('(A12,L2)'), 'one = ', one
-    if (isused(4))  print ('(A12,L2)'), 'mt = ', mt
-    if (isused(5))  print ('(A12,L2)'), 'vol = ', vol
-    if (isused(6))  print ('(A12,L2)'), 'gf = ', gf
-    if (isused(7))  print ('(A12,I10)'), 'nemit = ', nemit
-    if (isused(8))  print ('(A12,I10)'), 'ncell = ', ncell
-    if (isused(9))  print ('(A12,I10)'), 'ntime = ', ntime
-    if (isused(10)) print ('(A12,I10)'), 'maxscat = ', maxscat
-    if (isused(11)) print ('(A12,I10)'), 'maxcoll = ', maxcoll
-    if (isused(12)) print ('(A12,ES10.3)'), 'tend = ', tend
-    if (isused(13)) print ('(A12,ES10.3)'), 'length = ', length
-    if (isused(14)) print ('(A12,ES10.3)'), 'side = ', side
-    if (isused(15)) print ('(A12,ES10.3)'), 'wall = ', wall
-    if (isused(16)) print ('(A12,ES10.3)'), 'a = ', a
-    if (isused(17)) print ('(A12,ES10.3)'), 'b = ', b
-    if (isused(18)) print ('(A12,ES10.3)'), 'c = ', c
-    if (isused(19)) print ('(A12,ES10.3)'), 'd = ', d
-    if (isused(20)) print ('(A12,F10.3)'), 'T = ', T
-    if (isused(21)) print ('(A12,F10.3)'), 'Thot = ', Thot
-    if (isused(22)) print ('(A12,F10.3)'), 'Tcold = ', Tcold
+    if (isused(1))  write(*,'(A12,A)') 'disp = ', trim(disp)
+    if (isused(2))  write(*,'(A12,A)') 'relax = ', trim(relax)
+    if (isused(3))  write(*,'(A12,L2)') 'one = ', one
+    if (isused(4))  write(*,'(A12,L2)') 'mt = ', mt
+    if (isused(5))  write(*,'(A12,L2)') 'vol = ', vol
+    if (isused(6))  write(*,'(A12,L2)') 'gf = ', gf
+    if (isused(7))  write(*,'(A12,I10)') 'nemit = ', nemit
+    if (isused(8))  write(*,'(A12,I10)') 'ncell = ', ncell
+    if (isused(9))  write(*,'(A12,I10)') 'ntime = ', ntime
+    if (isused(10)) write(*,'(A12,I10)') 'maxscat = ', maxscat
+    if (isused(11)) write(*,'(A12,I10)') 'maxcoll = ', maxcoll
+    if (isused(12)) write(*,'(A12,ES10.3)') 'tend = ', tend
+    if (isused(13)) write(*,'(A12,ES10.3)') 'length = ', length
+    if (isused(14)) write(*,'(A12,ES10.3)') 'side = ', side
+    if (isused(15)) write(*,'(A12,ES10.3)') 'wall = ', wall
+    if (isused(16)) write(*,'(A12,ES10.3)') 'a = ', a
+    if (isused(17)) write(*,'(A12,ES10.3)') 'b = ', b
+    if (isused(18)) write(*,'(A12,ES10.3)') 'c = ', c
+    if (isused(19)) write(*,'(A12,ES10.3)') 'd = ', d
+    if (isused(20)) write(*,'(A12,F10.3)') 'T = ', T
+    if (isused(21)) write(*,'(A12,F10.3)') 'Thot = ', Thot
+    if (isused(22)) write(*,'(A12,F10.3)') 'Tcold = ', Tcold
     
 end subroutine printargs
 

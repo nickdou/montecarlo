@@ -1,5 +1,5 @@
 program test
-!     use tools
+    use tools
     implicit none
     
     real(8) :: a, b
@@ -37,17 +37,14 @@ subroutine parsecmdargs()
     character(64) :: input, arg, val
     character(66) :: charval
     
-    do i = 1,iargc()
-        call getarg(i, input)
+    do i = 1, command_argument_count()
+        call get_command_argument(i, input)
         input = adjustl(input)
         eqsign = index(input, '=')
         length = len_trim(input)
         if (eqsign > 1 .and. eqsign < length) then
             arg = input(1:eqsign-1)
             val = input(eqsign+1:length)
-            
-            print ('(A)'), trim(input)
-            print ('(3A)'), trim(arg), '=', trim(val)
             
             select case (arg)
                 case ('a')
