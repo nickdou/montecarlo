@@ -158,13 +158,13 @@ end function dirtoang
 !   mat(:,3) = zaxis
 ! end function rotmatrix
 
-pure function inverse2(mat) result(inv)
-    real(8), intent(in) :: mat(2,2)
-    real(8) :: det, inv(2,2)
-    
-    det = mat(1,1)*mat(2,2) - mat(1,2)*mat(2,1)
-    inv = 1/det * reshape((/mat(2,2), -mat(2,1), -mat(1,2), mat(1,1)/), (/2,2/))
-end function inverse2
+! pure function inverse2(mat) result(inv)
+!     real(8), intent(in) :: mat(2,2)
+!     real(8) :: det, inv(2,2)
+!
+!     det = mat(1,1)*mat(2,2) - mat(1,2)*mat(2,1)
+!     inv = 1/det * reshape((/mat(2,2), -mat(2,1), -mat(1,2), mat(1,1)/), (/2,2/))
+! end function inverse2
 
 integer pure function signtoint(sign) result(pm)
     logical, intent(in) :: sign

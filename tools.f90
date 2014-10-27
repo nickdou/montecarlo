@@ -25,11 +25,43 @@ module tools
         module procedure writematlab1, writematlab2
     end interface writematlab
     
+    integer(8) :: countstart, countrate, countmax
     integer :: nthreads = 1
     logical :: usemt
     type(mt_state), allocatable :: randstate(:)
     
 contains
+
+character(19) function timestamp()
+    character(8)  :: date
+    character(10) :: time
+
+    call date_and_time(date=date, time=time)
+    timestamp = date(1:4) // '-' // date(5:6) // '-' // date(7:8) // ' ' // &
+        time(1:2) // ':' // time(3:4) // ':' // time(5:6)
+end function timestamp
+
+subroutine starttimer()
+    call system_clock(countstart, countrate, countmax)
+end subroutine
+
+character(13) function readtimer()
+    integer(8) :: count, elapsed, hrs, mins, secs
+    real(8) :: mils
+    
+    call system_clock(count)
+    elapsed = count - countstart
+    if (elapsed < 0) then
+        elapsed = elapsed + countmax
+    end if
+    
+    mils = mod(elapsed, countrate)/dble(countrate)
+    secs = mod(elapsed / countrate, 60_8)
+    mins = mod(elapsed / (60*countrate), 60_8)
+    hrs  = mod(elapsed / (3600*countrate), 1000_8)
+    
+    write(readtimer,'(I3,A,I2.2,A,I2.2,F0.3)') hrs, ':', mins, ':', secs, mils
+end function readtimer
 
 subroutine initomp(n)
     integer, intent(in), optional :: n
@@ -318,14 +350,16 @@ subroutine writematlab1(vector, fmt, unit, filename, var)
     
 end subroutine writematlab1
 
-subroutine showprogress(i, itot, num)
+subroutine showprogress(i, itot, nbarsinp)
     integer, intent(in) :: i, itot
-    integer, intent(in), optional :: num
+    integer, intent(in), optional :: nbarsinp
     real(8) :: xstep, x
-    integer :: nbars = 20, bars
+    integer :: bars, nbars
     
-    if (present(num)) then
-        nbars = num
+    if (present(nbarsinp)) then
+        nbars = nbarsinp
+    else
+        nbars = 20
     end if
     
     xstep = dble(nbars)/itot
@@ -333,10 +367,9 @@ subroutine showprogress(i, itot, num)
     bars = floor(x)
     
     if ((x - floor(x))/xstep < 1d0 - 1d-6) then
-        print *, nint(100*dble(i)/itot), '%  ', &
-            '[', repeat('|',bars), repeat('-',nbars-bars), ']'
+        print ('(A,2X,I3,A,1X,A)'), readtimer(), nint(100*dble(i)/itot), '%', &
+            '[' // repeat('|',bars) // repeat('-',nbars-bars) // ']'
     end if
-    
 end subroutine showprogress
 
 end module tools

@@ -46,7 +46,7 @@ subroutine scatter(phn, nscat)
     type(phonon), intent(inout) :: phn
     integer, intent(inout) :: nscat
     
-    if (abs(phn%tscat) < eps) then
+    if (phn%tscat < eps) then
         call drawscatterprop(phn%p, phn%q)
         call drawangiso(phn%dir)
         call drawscattime(phn%tscat, phn%p, phn%q)

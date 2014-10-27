@@ -9,7 +9,7 @@ module domain
     public  :: SPEC_BC, DIFF_BC, ISOT_BC, PERI_BC, axis, boundary, &
         makeaxis, setgrid, initrecord, inittraj, appendtraj, gettraj, &
         makebdry, makebdry_arr, setbdry, setbdrypair, &
-        calculateemit, setvolumetric, getemit, geteeff, &
+        calculateemit, setvolumetric, getemit, getnemit, geteeff, &
         drawemittime, drawemitstate, updatestate, applybc, &
         recordtime, recorddisp, recordloc, addcumdisp, &
         getsteadytemp, gettranstemp, getflux, getgridflux
@@ -37,7 +37,7 @@ module domain
                           PERI_BC = 4
     
     real(8) :: tend, tstep, flow(3), Eeff, volume
-    integer :: ntime, ncell, nbdry, nemit, emitind, ntraj, maxtraj
+    integer :: ntime, ncell, nbdry, ntraj, maxtraj
     logical :: gridflux, volumetric
     type(axis) :: grid, vgen
     real(8), allocatable :: trajectory(:,:)
@@ -128,12 +128,13 @@ subroutine appendtraj(pos)
     end if
 end subroutine appendtraj
 
-function gettraj() result(traj)
-    real(8) :: traj(3, 0:ntraj)
+pure subroutine gettraj(num, traj)
+    integer, intent(inout) :: num
+    real(8), intent(inout) :: traj(3, 0:num)
     
-!   allocate( traj(3, 0:ntraj) )
-    traj = trajectory(:, 0:ntraj)
-end function gettraj
+    num = min(num, ntraj)
+    traj(:, 0:num) = trajectory(:, 0:num)
+end subroutine gettraj
 
 real(8) pure function getcoord(pos) result(coord)
     real(8), intent(in) :: pos(3)
@@ -208,12 +209,12 @@ pure function makebdry_arr(verts, bcs, faces, temps, tris) result(bdry_arr)
     real(8), intent(in) :: verts(:,:), temps(:)
     integer, intent(in) :: bcs(:), faces(:,:)
     logical, intent(in) :: tris(:)
-    type(boundary), allocatable :: bdry_arr(:)
+    type(boundary) :: bdry_arr(size(bcs,1))
     integer :: i, n
     real(8) :: origin(3), ivec(3), jvec(3)
     
     n = size(bcs,1)
-    allocate( bdry_arr(n) )
+!     allocate( bdry_arr(n) )
     do i = 1,n
         origin = verts(:,faces(2,i))
         ivec = verts(:,faces(1,i)) - origin
@@ -275,20 +276,21 @@ subroutine calculateemit(num)
 !   call alloc(emit_arr, nbdry)
     
     emit_arr = nint( num*areatemp_arr/sumareatemp )
-    nemit = sum(emit_arr)
-    emitind = 1
+!     nemit = sum(emit_arr)
+!     emitind = 1
     
-    Eeff = (sumareatemp*tend/nemit) * getpseudoflux()
+    Eeff = (sumareatemp*tend/sum(emit_arr)) * getpseudoflux()
 end subroutine calculateemit
 
 pure function getemit() result(arr)
-    integer :: i, arr(nbdry)
+    integer :: arr(nbdry)
     
-    arr = 0
-    do i = 1,nbdry
-        arr(i) = emit_arr(i)
-    end do
+    arr = emit_arr
 end function getemit
+
+integer pure function getnemit() result(num)
+    num = sum(emit_arr)
+end function getnemit
 
 real(8) pure function geteeff() result(E)
     E = Eeff
@@ -320,40 +322,51 @@ subroutine drawemitstate(ind, pos, dir, sign)
     integer, intent(out) :: ind
     real(8), intent(out) :: pos(3), dir(3)
     logical, intent(out) :: sign
+    logical :: isdone
     real(8) :: r
     
-    if (nemit > 0) then
-        !$omp critical
-        do
-            if (emit_arr(emitind) > 0) then
-                emit_arr(emitind) = emit_arr(emitind) - 1
-                nemit = nemit - 1
-                exit
-            else
-                emitind = emitind + 1
-            end if
-        end do
-        !$omp end critical
-        ind = emitind
-        
+!     if (nemit > 0) then
+    !$omp critical
+!     do
+!         if (emit_arr(emitind) > 0) then
+!             emit_arr(emitind) = emit_arr(emitind) - 1
+!             nemit = nemit - 1
+!             exit
+!         else
+!             emitind = emitind + 1
+!         end if
+!     end do
+!     ind = emitind
+    isdone = ( sum(emit_arr) == 0 )
+    if (.not. isdone) then
+        ind = maxloc(emit_arr, 1)
+        emit_arr(ind) = emit_arr(ind) - 1
+    end if
+    !$omp end critical
+    
+    if (ind > nbdry) then
+        print *, 'error: drawemitstate: ind = ', ind
+        print *, 'emit_arr = ', emit_arr
+        print *, 'isdone = ', isdone
+    end if
+    
+    if (.not. isdone) then
         call drawposrect(pos)
-!       pos = (/bdry_arr(emitind)%dx, bdry_arr(emitind)%dy, 1d0/)*pos
-!       pos = bdry_arr(emitind)%origin + matmul(bdry_arr(emitind)%rot, pos)
-        pos = bdry_arr(emitind)%origin + pos(1)*bdry_arr(emitind)%ivec + &
-            pos(2)*bdry_arr(emitind)%jvec
-        
+    !       pos = (/bdry_arr(ind)%dx, bdry_arr(ind)%dy, 1d0/)*pos
+    !       pos = bdry_arr(ind)%origin + matmul(bdry_arr(ind)%rot, pos)
+        pos = bdry_arr(ind)%origin + pos(1)*bdry_arr(ind)%ivec + &
+            pos(2)*bdry_arr(ind)%jvec
+    
         if (volumetric) then
             call randnum(r)
-!           r = 0.99d0 !DEBUG
             pos = pos - project(pos, vgen%dir)
             pos = pos + ((1-r)*vgen%lo + r*vgen%hi) * vgen%dir
         end if
-        
+    
         call drawanghalf(dir)
-        dir = matmul(bdry_arr(emitind)%rot, dir)
-!       dir = (/0d0, 0d0, 1d0/) !DEBUG
-        
-        sign = (bdry_arr(emitind)%temp >= 0)
+        dir = matmul(bdry_arr(ind)%rot, dir)
+    
+        sign = (bdry_arr(ind)%temp >= 0)
     end if
 end subroutine drawemitstate
 
@@ -442,6 +455,11 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     pierced(ind) = .false.
     pierced(0) = .true.
     ind = minloc(dt, 1, pierced) - 1 !subtract one because of zero index
+    if (ind > nbdry) then
+        print *, 'error: updatestate: ind = ', ind
+        print *, 'dt = ', dt
+        print *, 'pierced = ', pierced
+    end if
 !   print *, dt
 !   print *, pierced
     
@@ -464,6 +482,7 @@ subroutine applybc(bc, ind, x, dir)
     integer, intent(in) :: bc
     integer, intent(inout) :: ind
     real(8), intent(inout) :: x(3), dir(3)
+    integer :: pair
     
     if (bc /= 0 .and. any(abs(dir) >= eps, 1)) then
         select case (bc)
@@ -476,7 +495,12 @@ subroutine applybc(bc, ind, x, dir)
             dir = 0
         case (PERI_BC)
             x = x + bdry_arr(ind)%pairmv
-            ind = bdry_arr(ind)%pair
+            pair = bdry_arr(ind)%pair
+            if (pair > nbdry) then
+                print *, 'error: applybc: ind = ', ind
+                print *, 'pair = ', pair
+            end if
+            ind = pair
         end select
     end if
 end subroutine applybc

@@ -12,7 +12,7 @@ module simulation
     
 contains
 
-subroutine initisot1d(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+subroutine initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
     character(len=*), intent(in) :: disp, relax
     logical, intent(in) :: one, mt, vol, gf
     integer, intent(in) :: nemit, ncell, ntime
@@ -59,23 +59,23 @@ subroutine initisot1d(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length
     print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
     print ('(A12,ES15.8)'), 'ktheory = ', ktheory
     print ('(A12,16I10)'),  'emit_arr = ', emit_arr
-end subroutine initisot1d
+end subroutine initisot
 
-subroutine initbulk1d(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+subroutine initbulk(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
     character(len=*), intent(in) :: disp, relax
     logical, intent(in) :: one, mt, vol, gf
     integer, intent(in) :: nemit, ncell, ntime
     real(8), intent(in) :: length, side, tend, T, Thot, Tcold
     real(8) :: zvec(3)
 
-    call initisot1d(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+    call initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
 
     zvec = (/0d0, 0d0, length/)
     call setbdrypair(1, 4, zvec)
     call calculateemit(nemit)
 
     print ('(/,A)'), 'Bulk'
-end subroutine initbulk1d
+end subroutine initbulk
 
 subroutine initfilm(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
     character(len=*), intent(in) :: disp, relax
@@ -363,13 +363,14 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
     print ('(A12,34I10)'),   'emit_arr = ', emit_arr
 end subroutine initunit
 
-subroutine simulate(nemit, maxscat)
-    integer, intent(in) :: nemit, maxscat
-    integer :: i, nscat, progress
+subroutine simulate(maxscat)
+    integer, intent(in) :: maxscat
+    integer :: i, nemit, nscat, progress
     real(8) :: t
     type(phonon) :: phn
     
     progress = 0
+    nemit = getnemit()
     !$omp parallel do private(phn, t, nscat) shared(progress)
     do i = 1, nemit
 !       print ('(/,A,I2)'), 'Particle ', i
@@ -394,12 +395,14 @@ end subroutine simulate
 
 subroutine simulateone(maxscat, maxcoll)
     integer, intent(in) :: maxscat, maxcoll
-    integer :: ncoll, nscat
-    real(8) :: t
+    integer :: ncoll, nscat, ntraj
+    real(8) :: t, traj(3, 0:2*maxcoll)
     type(phonon) :: phn
     
     phn = emit()
-    call inittraj( 2*maxcoll, getpos(phn) )
+    
+    ntraj = 2*maxcoll
+    call inittraj( ntraj, getpos(phn) )
 
     t = 0
     ncoll = 0
@@ -412,8 +415,9 @@ subroutine simulateone(maxscat, maxcoll)
             call remove(phn)
         end if
     end do
-
-    call writematlab( transpose(gettraj()), '(ES16.8)', 2, 'traj', 'x' )
+    
+    call gettraj( ntraj, traj )
+    call writematlab( transpose(traj(:, 0:ntraj)), '(ES16.8)', 2, 'traj', 'x' )
 end subroutine simulateone
 
 subroutine writetemp(ncell, ntime)
@@ -437,16 +441,12 @@ subroutine writeflux(ncell)
     call writematlab(flux, '(ES16.8)', 3, 'flux', 'q')
 end subroutine writeflux
 
-real(8) function getcond(deltaT, length) result(k)
+real(8) function getcond(deltaT, length)
     real(8), intent(in) :: deltaT, length
-    real(8) :: flux, cond
+    real(8) :: flux
     
     flux = getflux()
-    cond = -flux *length/deltaT
-    k = cond
-    
-    print ('(A,ES16.8,A)'), 'j = ', flux, ' W/m^2'
-    print ('(A,ES16.8,A)'), 'k = ', cond, ' W/m-K'
+    getcond = -flux *length/deltaT
 end function getcond
 
 end module simulation
