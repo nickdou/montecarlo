@@ -69,7 +69,6 @@ subroutine advect(phn, t)
     deltat = phn%tscat
     
     call updatestate(bc, ind, x, dir, v, deltat, t)
-!   print *, ind, bc, x
     call appendtraj(x)
     
     call recordtime(phn%sign, deltat, phn%x, x)

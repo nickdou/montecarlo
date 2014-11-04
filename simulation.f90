@@ -207,7 +207,6 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
     integer, parameter :: nbdry = 34
     type(axis) :: grid, vgen
     type(boundary) :: bdry_arr(nbdry)
-!   real(8) :: l, bdrydata_arr(nbdry, 10)
     real(8) :: l, vertshi(3, nvert/2), verts(3, nvert), temps(nbdry), mv(3)
     integer :: i, bdrys(4, nbdry), emit_arr(nbdry)
     logical :: tris(nbdry)
@@ -227,43 +226,6 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
     grid = makeaxis((/0d0, 0d0, 1d0/), -l, l, 1) ! ncell = 1
     call setgrid(tend, ntime, grid)
     call initrecord(.false., (/0d0, 0d0, 1d0/)) ! gf = .false.
-
-!   bdrydata_arr = transpose(reshape((/ &
-!          -d, 0d0,   -l,       d,    0d0,  0d0,   0d0,      b,   0d0,  Thot, &
-!          -d,   b,   -l, 2*a+2*d,    0d0,  0d0,   0d0,      d,   0d0,  Thot, &
-!         2*a, 0d0,   -l,       d,    0d0,  0d0,   0d0,      b,   0d0,  Thot, &
-!          -d, 0d0,   -l,     0d0,    b+d,  0d0,   0d0,    0d0,   l-a,   0d0, &
-!          -d, b+d,   -l,   a+2*d,    0d0,  0d0,   0d0,    0d0, l-a-d,   0d0, &
-!         a+d, b+d,   -l,       a,    0d0,  0d0,   0d0,    0d0,     l,   0d0, &
-!       2*a+d, b+d,   -l,     0d0,   -b-d,  0d0,   0d0,    0d0,     l,   0d0, &
-!       2*a+d, 0d0,   -l,      -d,    0d0,  0d0,   0d0,    0d0,     l,   0d0, &
-!         2*a, 0d0,   -l,     0d0,      b,  0d0,   0d0,    0d0,     l,   0d0, &
-!         2*a,   b,   -l,      -a,    0d0,  0d0,   0d0,    0d0,     l,   0d0, &
-!           a,   b,   -l,      -a,    0d0,  0d0,   0d0,    0d0,   l-a,   0d0, &
-!         0d0,   b,   -l,     0d0,     -b,  0d0,   0d0,    0d0,   l-a,   0d0, &
-!         0d0, 0d0,   -l,      -d,    0d0,  0d0,   0d0,    0d0,   l-a,   0d0, &
-!         0d0, 0d0,   -a,      -d,    0d0,  0d0,   0d0,      b,   0d0,   0d0, &
-!          -d,   l,   -a,     0d0, -l+b+d,  0d0,   0d0,    0d0,    -d,   0d0, &
-!          -d,   l, -a-d,     0d0, -l+b+d,  0d0, a+2*d,    0d0,   0d0,   0d0, &
-!          -d,   l, -a-d,     a+d,    0d0,  0d0,   0d0,    0d0,     d,   0d0, &
-!          -d,   l,   -a,     a+d,    0d0,  0d0,   0d0,   -l+b,   0d0,   0d0, &
-!           a,   l,   -a,     0d0,    0d0,    a,   0d0,   -l+b,   0d0,   0d0, &
-!           a,   l,  0d0,     0d0,    0d0, -a-d,     d,    0d0,   0d0,   0d0, &
-!         a+d,   l,  0d0,     0d0,    0d0, -a-d,   0d0, -l+b+d,   0d0,   0d0, &
-!           a,   l,  0d0,       d,    0d0,  0d0,   0d0,   -l+b,   0d0, Tcold, &
-!         a+d,   b,  0d0,     0d0,      d,  0d0,     a,    0d0,   0d0, Tcold, &
-!         2*a,   b,  0d0,       d,    0d0,  0d0,   0d0,     -b,   0d0, Tcold  &
-!       /), (/10, nbdry/)))
-!
-!   bc_arr = (/ ISOT_BC, ISOT_BC, ISOT_BC, &
-!       DIFF_BC, DIFF_BC, DIFF_BC, DIFF_BC, SPEC_BC, &
-!       DIFF_BC, DIFF_BC, DIFF_BC, DIFF_BC, SPEC_BC, SPEC_BC, &
-!       SPEC_BC, DIFF_BC, SPEC_BC, DIFF_BC, DIFF_BC, SPEC_BC, DIFF_BC, &
-!       ISOT_BC, ISOT_BC, ISOT_BC /)
-!
-!   do i = 1,nbdry
-!       bdry_arr(i) = makebdry(bc_arr(i), bdrydata_arr(i,1:3), bdrydata_arr(i,4:6), bdrydata_arr(i,7:9), bdrydata_arr(i,10))
-!   end do
     
     vertshi = reshape((/ &
           0d0, 0d0,   l, & 
@@ -373,7 +335,6 @@ subroutine simulate(maxscat)
     nemit = getnemit()
     !$omp parallel do private(phn, t, nscat) shared(progress)
     do i = 1, nemit
-!       print ('(/,A,I2)'), 'Particle ', i
         phn = emit()
 
         call drawemittime(t)

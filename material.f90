@@ -38,13 +38,6 @@ subroutine initmat(disp, relax, T)
     allocate( tau_arr(npol, nomega) )
     allocate( dedT_arr(npol, nomega) )
     
-!   call alloc(omega_arr, nomega)
-!   call alloc(domega_arr, npol, nomega)
-!   call alloc(vel_arr, npol, nomega)
-!   call alloc(dos_arr, npol, nomega)
-!   call alloc(tau_arr, npol, nomega)
-!   call alloc(dedT_arr, npol, nomega)
-    
     allocate( row(2*npol) )
     do q = 1,nomega
         read(un1, *) omega_arr(q), domega_arr(1,q), row

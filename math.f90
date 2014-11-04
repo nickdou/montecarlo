@@ -3,10 +3,6 @@ module math
     implicit none
     
     public
-    
-!   interface cumsum
-!       module procedure cumsum_real, cumsum_arr
-!   end interface cumsum
 
 contains
 
@@ -22,36 +18,6 @@ pure function cumsum(arr) result(cum_arr)
         cum_arr(i) = cum
     end do
 end function cumsum
-
-! pure function cumsum_arr(arr, dim) result(cum_arr)
-!   real(8), intent(in) :: arr(:,:)
-!   integer, intent(in) :: dim
-!   real(8), allocatable :: cum_arr(:,:)
-!   integer :: m, n, l, u, k
-!
-!   m = size(arr, 1);
-!   n = size(arr, 2);
-! ! allocate( cum_arr(m,n) )
-!   call alloc(cum_arr, m, n)
-!
-!   if (dim == 1) then
-!       l = lbound(arr, 2)
-!       u = ubound(arr, 2)
-!       do k = l,u
-!           cum_arr(:,k) = cumsum_real( arr(:,k) )
-!       end do
-!
-!   else if (dim == 2) then
-!       l = lbound(arr, 1)
-!       u = ubound(arr, 1)
-!       do k = l,u
-!           cum_arr(k,:) = cumsum_real( arr(k,:) )
-!       end do
-!
-!   else
-!       cum_arr = arr
-!   end if
-! end function cumsum_arr
 
 pure function pdftocdf(pdf) result(cdf)
     real(8), intent(in) :: pdf(:)
@@ -148,23 +114,6 @@ pure function dirtoang(dir) result(ang)
         ang = (/ z/r, atan2(y, x) /)
     end if
 end function dirtoang
-
-! pure function rotmatrix(xaxis, yaxis, zaxis) result(mat)
-!   real(8), intent(in) :: xaxis(3), yaxis(3), zaxis(3)
-!   real(8) :: mat(3,3)
-!
-!   mat(:,1) = xaxis
-!   mat(:,2) = yaxis
-!   mat(:,3) = zaxis
-! end function rotmatrix
-
-! pure function inverse2(mat) result(inv)
-!     real(8), intent(in) :: mat(2,2)
-!     real(8) :: det, inv(2,2)
-!
-!     det = mat(1,1)*mat(2,2) - mat(1,2)*mat(2,1)
-!     inv = 1/det * reshape((/mat(2,2), -mat(2,1), -mat(1,2), mat(1,1)/), (/2,2/))
-! end function inverse2
 
 integer pure function signtoint(sign) result(pm)
     logical, intent(in) :: sign

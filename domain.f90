@@ -82,14 +82,11 @@ subroutine initrecord(gf, dir)
     
     if (ntime == 0) then
         allocate( gridtime_arr(0:nthreads-1, ncell) )
-!       call alloc(gridtime_arr, ncell)
         gridtime_arr = 0
     else
         tstep = tend/ntime
         
         allocate( gridloc_arr(0:nthreads-1, ncell, 0:ntime) )
-!       call alloc(gridloc_arr, ncell, ntime, (/.false.,.true./))
-        
         gridloc_arr = 0
     end if
     
@@ -97,7 +94,6 @@ subroutine initrecord(gf, dir)
     flow = dir
     if (gf) then
         allocate( griddisp_arr(0:nthreads-1, ncell) )
-!       call alloc(griddisp_arr, ncell)
         griddisp_arr = 0
     else
         allocate( cumdisp(0:nthreads-1) )
@@ -113,7 +109,6 @@ subroutine inittraj(num, pos)
     ntraj = 0
     
     allocate( trajectory(3, 0:num) )
-!   call alloc(trajectory, 3, num, (/.false.,.true./))
     trajectory(:,0) = pos
 end subroutine inittraj
 
@@ -214,7 +209,6 @@ pure function makebdry_arr(verts, bcs, faces, temps, tris) result(bdry_arr)
     real(8) :: origin(3), ivec(3), jvec(3)
     
     n = size(bcs,1)
-!     allocate( bdry_arr(n) )
     do i = 1,n
         origin = verts(:,faces(2,i))
         ivec = verts(:,faces(1,i)) - origin
@@ -239,7 +233,6 @@ subroutine setbdry(arr, vol)
 end subroutine setbdry
 
 subroutine setbdrypair(ind1, ind2, mv)
-! TODO: check that rot2 = inv(rot1) or calculate one from the other
     integer, intent(in) :: ind1, ind2
     real(8), intent(in) :: mv(3)
     real(8) :: temp1, temp2
@@ -273,11 +266,8 @@ subroutine calculateemit(num)
         deallocate( emit_arr )
         allocate( emit_arr(nbdry) )
     end if
-!   call alloc(emit_arr, nbdry)
     
     emit_arr = nint( num*areatemp_arr/sumareatemp )
-!     nemit = sum(emit_arr)
-!     emitind = 1
     
     Eeff = (sumareatemp*tend/sum(emit_arr)) * getpseudoflux()
 end subroutine calculateemit
@@ -325,18 +315,7 @@ subroutine drawemitstate(ind, pos, dir, sign)
     logical :: isdone
     real(8) :: r
     
-!     if (nemit > 0) then
     !$omp critical
-!     do
-!         if (emit_arr(emitind) > 0) then
-!             emit_arr(emitind) = emit_arr(emitind) - 1
-!             nemit = nemit - 1
-!             exit
-!         else
-!             emitind = emitind + 1
-!         end if
-!     end do
-!     ind = emitind
     isdone = ( sum(emit_arr) == 0 )
     if (.not. isdone) then
         ind = maxloc(emit_arr, 1)
@@ -346,8 +325,6 @@ subroutine drawemitstate(ind, pos, dir, sign)
     
     if (.not. isdone) then
         call drawposrect(pos)
-    !       pos = (/bdry_arr(ind)%dx, bdry_arr(ind)%dy, 1d0/)*pos
-    !       pos = bdry_arr(ind)%origin + matmul(bdry_arr(ind)%rot, pos)
         pos = bdry_arr(ind)%origin + pos(1)*bdry_arr(ind)%ivec + &
             pos(2)*bdry_arr(ind)%jvec
     
@@ -363,26 +340,6 @@ subroutine drawemitstate(ind, pos, dir, sign)
         sign = (bdry_arr(ind)%temp >= 0)
     end if
 end subroutine drawemitstate
-
-! pure subroutine getcoll(pierced, coll, pos1, pos2, tri)
-!   real(8), intent(in) :: pos1(3), pos2(3)
-!   logical, intent(in) :: tri
-!   logical, intent(out) :: pierced
-!   real(8), intent(out) :: coll(3)
-!   real(8) :: k1, k2
-!
-!   k1 = pos1(3)
-!   k2 = pos2(3)
-!   coll = (k2*pos1 - k1*pos2)/(k2 - k1)
-!
-!   if (k1*k2 > 0) then
-!       pierced = .false.
-!   else if (tri) then
-!       pierced = all(coll(1:2) >= 0) .and. sum(coll(1:2)) <= 1
-!   else
-!       pierced = all(coll(1:2) >= 0 .and. coll(1:2) <= 1)
-!   end if
-! end subroutine getcoll
 
 pure subroutine getcoll(pierced, coll, x, dir, tri)
     real(8), intent(in) :: x(3), dir(3)
@@ -408,35 +365,14 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     real(8), intent(inout) :: x(3), dir(3), v, deltat, t
     integer, intent(out) :: bc
     integer :: i
-!   real(8) :: aim(3), origin(3), ivec(3), jvec(3), inv(3,3), pos1(3), pos2(3)
     real(8) :: xi(3), diri(3)
-!   logical :: tri, piercedi, pierced(nbdry)
     logical :: pierced(0:nbdry)
-!   real(8) :: colli(3), coll(3,nbdry), dist(nbdry)
     real(8) :: colli(2), coll(3, 0:nbdry), dt(0:nbdry)
     
-!   if (t + deltat > tend) then
-!       deltat = tend - t
-!   end if
-!   aim = x + v*deltat*dir
     dt(0) = min(deltat, tend - t)
     coll(:,0) = x + v*dt(0)*dir
     
     do i = 1,nbdry
-!       origin = bdry_arr(i)%origin
-!       ivec = bdry_arr(i)%ivec
-!       jvec = bdry_arr(i)%jvec
-!       inv = bdry_arr(i)%inv
-!       tri = bdry_arr(i)%tri
-!
-!       pos1 = matmul(inv, x - origin)
-!       pos2 = matmul(inv, aim - origin)
-!       call getcoll(piercedi, colli, pos1, pos2, tri)
-!
-!       pierced(i) = piercedi
-!       coll(:,i) = origin + colli(1)*ivec + colli(2)*jvec
-!       dist(i) = normtwo(coll(:,i) - x)
-        
         xi = matmul(bdry_arr(i)%inv, x - bdry_arr(i)%origin)
         diri = matmul(bdry_arr(i)%inv, dir)
         call getcoll(pierced(i), colli, xi, diri, bdry_arr(i)%tri)
@@ -449,8 +385,6 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     pierced(ind) = .false.
     pierced(0) = .true.
     ind = minloc(dt, 1, pierced) - 1 !subtract one because of zero index
-!   print *, dt
-!   print *, pierced
     
     if (ind == 0) then
         bc = 0
@@ -487,55 +421,6 @@ subroutine applybc(bc, ind, x, dir)
         end select
     end if
 end subroutine applybc
-
-!subroutine incgridtime(time, ind1, ind2)
-!   real(8), intent(in) :: time
-!   integer, intent(in) :: ind1
-!   integer, intent(in), optional :: ind2
-!   
-!   if (present(ind2)) then
-!       if (ind1 <= ind2) then
-!           gridtime_arr(ind1:ind2) = gridtime_arr(ind1:ind2) + time
-!       end if
-!   else
-!       gridtime_arr(ind1) = gridtime_arr(ind1) + time
-!   end if
-!end subroutine incgridtime
-
-!subroutine recordtime(sign, deltat, xold, xnew)
-!   logical, intent(in) :: sign
-!   real(8), intent(in) :: deltat, xold(3), xnew(3)
-!   real(8) :: coordold, coordnew, dcoord
-!   integer :: pm, indold, indnew
-!   
-!   if (ntime == 0) then
-!       pm = signtoint(sign)
-!   
-!       coordold = getcoord(xold)
-!       coordnew = getcoord(xnew)
-!       dcoord = abs(coordnew - coordold)
-!   
-!       indold = coordtoind(coordold)
-!       indnew = coordtoind(coordnew)
-!   
-!       if (indold < indnew) then
-!           call incgridtime(pm*deltat*(indold - coordold)/dcoord, indold)
-!           call incgridtime(pm*deltat/dcoord, indold+1, indnew-1)
-!           call incgridtime(pm*deltat*(1 - (indnew - coordnew))/dcoord, indnew)
-!       else if (indnew < indold) then
-!           call incgridtime(pm*deltat*(indnew - coordnew)/dcoord, indnew)
-!           call incgridtime(pm*deltat/dcoord, indnew+1, indold-1)
-!           call incgridtime(pm*deltat*(1 - (indold - coordold))/dcoord, indold)
-!       else
-!           call incgridtime(pm*deltat, indold)
-!       end if
-!   
-!!      print ('(2I10)'), indold, indnew
-!!      print ('(I4,F8.3,I4)'), floor(coordold), coordold, ceiling(coordold)
-!!      print ('(2F10.3,A,2ES11.3,A,2ES11.3)'), coordold, coordnew, ' :', &
-!!          gridtime_arr(1:2), ' ... ', gridtime_arr(ncell-1:ncell)
-!   end if
-!end subroutine recordtime
 
 subroutine incgrid(cum_arr, val, ind1, ind2)
     real(8), intent(inout) :: cum_arr(0:,:)
@@ -636,7 +521,6 @@ subroutine addcumdisp_real(sign, deltax)
     if (.not. gridflux) then
         pm = signtoint(sign)
         cumdisp(threadi) = cumdisp(threadi) + pm*dot_product(flow, deltax)
-!       print *, 'addcumdisp', deltax
     end if
 end subroutine addcumdisp_real
 
