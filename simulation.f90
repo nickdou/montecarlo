@@ -438,7 +438,7 @@ subroutine writeflux(ncell)
     real(8) :: flux(ncell)
     
     flux = getgridflux()
-    call writematlab(flux, '(ES16.8)', 3, 'flux', 'q')
+    call writematlab(flux, '(ES16.8)', 3, 'flux', 'j')
 end subroutine writeflux
 
 real(8) function getcond(deltaT, length)

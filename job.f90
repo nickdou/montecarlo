@@ -7,11 +7,13 @@ program job
     
     integer :: unit = 1
     integer :: i, j
+    integer :: iters
     character(128) :: logdir, jobname, exec
     character(32) :: c(3), d(4)
     
-    c = (/'16', '8 ', '4 '/)
-    d = (/'0.08', '0.04', '0.02', '0.01'/)
+    c = (/'4 ', '8 ', '16'/)
+    d = (/'0.01', '0.02', '0.04', '0.08'/)
+    iters = 2
     
     logdir = ''
     do i = 1,3
@@ -27,6 +29,8 @@ program job
 contains
     
 subroutine writejob()
+    integer :: k
+    
     open(unit, file=filename, action='write', status='replace')
     write(unit, '(A)') hashbang
     write(unit, '(A)') pbs // '-N ' // trim(jobname)
@@ -36,7 +40,9 @@ subroutine writejob()
     write(unit, '(A)') pbs // '-l walltime=24:00:00'
     write(unit, '(A)') pbs // '-q default'
     write(unit, '(/,A)') 'cd $PBS_O_WORKDIR'
-    write(unit, '(A)') trim(exec)
+    do k = 1, iters
+        write(unit, '(A)') trim(exec)
+    end do
     close(unit)
 end subroutine writejob
 
