@@ -31,7 +31,7 @@ pure function pdftocdf(pdf) result(cdf)
     end if
 end function pdftocdf
 
-integer pure function searchintvl(arr, val) result(ind)
+integer pure function searchbin(arr, val) result(ind)
     real(8), intent(in) :: arr(:)
     real(8), intent(in) :: val
     integer :: low, mid, high
@@ -47,7 +47,7 @@ integer pure function searchintvl(arr, val) result(ind)
         end if
     end do
     ind = low
-end function searchintvl
+end function searchbin
 
 real(8) pure function normtwo(vec)
     real(8), intent(in) :: vec(:)

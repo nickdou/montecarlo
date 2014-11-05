@@ -70,8 +70,8 @@ subroutine drawprop(p, q, cdf_arr)
     real(8) :: r(2)
     
     call randnum(r)
-    q = searchintvl( getomegacdf(cdf_arr), r(1) )
-    p = searchintvl( getpolcdf(cdf_arr, q), r(2) )
+    q = searchbin( getomegacdf(cdf_arr), r(1) )
+    p = searchbin( getpolcdf(cdf_arr, q), r(2) )
 end subroutine drawprop
 
 subroutine drawenergyprop(p, q)

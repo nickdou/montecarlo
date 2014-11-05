@@ -4,16 +4,17 @@ program test
     
     real(8) :: a, b
     character(64) :: cmd
-
-!     call testsystem()
     
-    call testparse()
+!     call testsystem()
+    print *, (1 - 1/2)*1d0
+    print *, 1d0*(2-1)/2
+    
+!     call testparse()
 
 !     print ('(A)'), timestamp()
 !     call starttimer()
 !     call testprogress()
 contains
-
 
 subroutine testsystem()
     integer :: status

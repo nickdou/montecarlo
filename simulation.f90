@@ -18,7 +18,7 @@ subroutine initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
     integer, intent(in) :: nemit, ncell, ntime
     real(8), intent(in) :: length, side, tend, T, Thot, Tcold
     integer, parameter :: nbdry = 6
-    type(axis) :: grid, vgen
+!     type(axis) :: grid, vgen
     type(boundary) :: bdry_arr(nbdry)
     real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
     integer :: emit_arr(nbdry)
@@ -33,9 +33,11 @@ subroutine initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
     call initmat(disp, relax, T)
     call initdist()
 
-    grid = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, ncell)
-    call setgrid(tend, ntime, grid)
-    call initrecord(gf, (/0d0, 0d0, 1d0/))
+!     grid = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, ncell)
+!     call setgrid(tend, ntime, grid)
+    call settime(tend, ntime)
+    call setgrid((/0d0, 0d0, 1d0/), 0d0, length, ncell, product(corner))
+    call initrecord((/0d0, 0d0, 1d0/))
 
     origin = (/0d0, 0d0, 0d0/)
     xvec = (/side, 0d0, 0d0/)
@@ -48,11 +50,15 @@ subroutine initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
     bdry_arr(4) = makebdry(ISOT_BC, corner, -yvec, -xvec, Tcold)
     bdry_arr(5) = makebdry(SPEC_BC, corner, -zvec, -yvec)
     bdry_arr(6) = makebdry(SPEC_BC, corner, -xvec, -zvec)
-    call setbdry(bdry_arr, product(corner))
+!     call setbdry(bdry_arr, product(corner))
+    call setbdry(bdry_arr)
     call calculateemit(nemit)
-
-    vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, 0)
-    call setvolumetric(vol, vgen)
+    
+!     vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, 0)
+!     call setvolumetric(vol, vgen)
+    if (vol) then
+        call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
+    end if
     
     emit_arr = getemit()
     print ('(/,A)'), 'Isothermal'
@@ -83,7 +89,7 @@ subroutine initfilm(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
     integer, intent(in) :: nemit, ncell, ntime
     real(8), intent(in) :: length, side, tend, T, Thot, Tcold
     integer, parameter :: nbdry = 6
-    type(axis) :: grid, vgen
+!     type(axis) :: grid, vgen
     type(boundary) :: bdry_arr(nbdry)
     real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
     integer :: emit_arr(nbdry)
@@ -98,9 +104,11 @@ subroutine initfilm(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
     call initmat(disp, relax, T)
     call initdist()
 
-    grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ncell)
-    call setgrid(tend, ntime, grid)
-    call initrecord(gf, (/0d0, 0d0, 1d0/))
+!     grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ncell)
+!     call setgrid(tend, ntime, grid)
+    call settime(tend, ntime)
+    call setgrid((/0d0, 1d0, 0d0/), 0d0, side, ncell, product(corner))
+    call initrecord((/0d0, 0d0, 1d0/))
 
     origin = (/0d0, 0d0, 0d0/)
     xvec = (/length, 0d0, 0d0/)
@@ -114,12 +122,16 @@ subroutine initfilm(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
     bdry_arr(4) = makebdry(PERI_BC, corner, -yvec, -xvec, Tcold)
     bdry_arr(5) = makebdry(SPEC_BC, corner, -zvec, -yvec)
     bdry_arr(6) = makebdry(DIFF_BC, corner, -xvec, -zvec)
-    call setbdry(bdry_arr, product(corner))
+!     call setbdry(bdry_arr, product(corner))
+    call setbdry(bdry_arr)
     call setbdrypair(1, 4, zvec)
     call calculateemit(nemit)
 
-    vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, 0)
-    call setvolumetric(vol, vgen)
+!     vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, 0)
+!     call setvolumetric(vol, vgen)
+    if (vol) then
+        call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
+    end if
 
     emit_arr = getemit()
     print ('(/,A)'), 'Film'
@@ -134,7 +146,7 @@ subroutine inithollow(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length
     integer, intent(in) :: nemit, ncell, ntime
     real(8), intent(in) :: length, side, wall, tend, T, Thot, Tcold
     integer, parameter :: nbdry = 16
-    type(axis) :: grid, vgen
+!     type(axis) :: grid, vgen
     type(boundary) :: bdry_arr(nbdry)
     real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3), xwall(3), ywall(3)
     integer :: emit_arr(nbdry)
@@ -149,9 +161,12 @@ subroutine inithollow(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length
     call initmat(disp, relax, T)
     call initdist()
 
-    grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ncell)
-    call setgrid(tend, ntime, grid)
-    call initrecord(gf, (/0d0, 0d0, 1d0/))
+!     grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ncell)
+!     call setgrid(tend, ntime, grid)
+    call settime(tend, ntime)
+    call setgrid((/0d0, 1d0, 0d0/), 0d0, side, ncell, &
+        product(corner) - product(corner - 2*xwall - 2*ywall))
+    call initrecord((/0d0, 0d0, 1d0/))
 
     origin = (/0d0, 0d0, 0d0/)
     xvec = (/side, 0d0, 0d0/)
@@ -181,15 +196,19 @@ subroutine inithollow(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length
     bdry_arr(15) = makebdry(DIFF_BC, corner, -xvec, -zvec)
     bdry_arr(16) = makebdry(DIFF_BC, corner - xwall-ywall, -zvec, -xvec+2*xwall)
 
-    call setbdry(bdry_arr, product(corner) - product(corner - 2*xwall - 2*ywall))
+!     call setbdry(bdry_arr, product(corner) - product(corner - 2*xwall - 2*ywall))
+    call setbdry(bdry_arr)
     call setbdrypair(1, 7, zvec)
     call setbdrypair(2, 8, zvec)
     call setbdrypair(3, 5, zvec)
     call setbdrypair(4, 6, zvec)
     call calculateemit(nemit)
 
-    vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, 0)
-    call setvolumetric(vol, vgen)
+!     vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, 0)
+!     call setvolumetric(vol, vgen)
+    if (vol) then
+        call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
+    end if
 
     emit_arr = getemit()
     print ('(/,A)'), 'Hollow'
@@ -205,7 +224,7 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
     real(8), intent(in) :: a, b, c, d, tend, T, Thot, Tcold
     integer, parameter :: nvert = 50
     integer, parameter :: nbdry = 34
-    type(axis) :: grid, vgen
+!     type(axis) :: grid, vgen
     type(boundary) :: bdry_arr(nbdry)
     real(8) :: l, vertshi(3, nvert/2), verts(3, nvert), temps(nbdry), mv(3)
     integer :: i, bdrys(4, nbdry), emit_arr(nbdry)
@@ -223,9 +242,11 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
 
     l = c/4d0*sqrt(2d0)
 
-    grid = makeaxis((/0d0, 0d0, 1d0/), -l, l, 1) ! ncell = 1
-    call setgrid(tend, ntime, grid)
-    call initrecord(.false., (/0d0, 0d0, 1d0/)) ! gf = .false.
+!     grid = makeaxis((/0d0, 0d0, 1d0/), -l, l, 1) ! ncell = 1
+!     call setgrid(tend, ntime, grid)
+    call settime(tend, ntime)
+    call setgrid((/0d0, 0d0, 1d0/), (/-l, -(l+a)/2, (l+a)/2, l/), (/1d0,1d0,1d0/))
+    call initrecord((/0d0, 0d0, 1d0/))
     
     vertshi = reshape((/ &
           0d0, 0d0,   l, & 
@@ -305,7 +326,8 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
     
     bdry_arr = makebdry_arr(verts, bdrys(4,:), bdrys(1:3,:), temps, tris)
     
-    call setbdry(bdry_arr, 2*d*(a+b+d)*(2*l-a) + 4*d*(a+d)*(l-b-d))
+!     call setbdry(bdry_arr, 2*d*(a+b+d)*(2*l-a) + 4*d*(a+d)*(l-b-d))
+    call setbdry(bdry_arr)
     
     mv = (/0d0, 0d0, -2*l/)
     call setbdrypair(1, nbdry, mv)
@@ -315,8 +337,8 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
     call calculateemit(nemit)
 
     ! No volumetric generation
-    vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, 1d0, 0)
-    call setvolumetric(.false., vgen)
+!     vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, 1d0, 0)
+!     call setvolumetric(.false., vgen)
     
     emit_arr = getemit()
     print ('(/,A)'), 'Unit'

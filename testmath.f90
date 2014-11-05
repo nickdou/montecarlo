@@ -4,21 +4,21 @@ program testmath
 	use math
 	implicit none
 	
-	call initomp()
+!     call initomp()
 	call initrand(.true.)
-! 	call printconst()
-	call testrand(100, 100000)
-! 	call testprintarray(5, 5)
-! 	call testwritematlab(5, 5)
-! 	call testcumsum(5, 5)
-! 	call testpdftocdf()
-! 	call testsearchintvl()
-! 	call testnormtwo()
-! 	call testunitvec()
-! 	call testproject()
-! 	call testcrossproduct()
-! 	call testinverse2()
-! 	call testangdir()
+!     call printconst()
+!     call testrand(100, 100000)
+!     call testprintarray(5, 5)
+!     call testwritematlab(5, 5)
+!     call testcumsum(5, 5)
+!     call testpdftocdf()
+    call testsearchbin()
+!     call testnormtwo()
+!     call testunitvec()
+!     call testproject()
+!     call testcrossproduct()
+!     call testinverse2()
+!     call testangdir()
 contains
 
 subroutine printconst()
@@ -113,27 +113,31 @@ subroutine testpdftocdf()
 	call printarray(cdf, '(F8.3)')
 end subroutine testpdftocdf
 
-subroutine testsearchintvl()
-	integer, parameter :: m = 100
+subroutine testsearchbin()
+	integer, parameter :: m = 20
 	integer, parameter :: N = 10
 	real(8) :: cdf(m), r
 	integer :: i
 	
-	cdf = (/(dble(i)/m, i=1,m)/)
-! 	call printarray(cdf, '(F8.3)', row=.true.)
-	
-	do i = 1, N
-		call randnum(r)
-		print ('(F8.3,2I6)'), r, ceiling(r*m), searchintvl(cdf, r)
-	end do
-	
-	do i = 0, m-1
-		r = dble(i)/m
-		if (searchintvl(cdf, r) /= nint(r*m+1)) then
-			print ('(I6)'), i
-		end if
-	end do
-end subroutine testsearchintvl
+	cdf = (/(dble(i), i=1,m)/)
+    call printarray(cdf, '(F8.3)', row=.true.)
+    
+    print *, searchbin(cdf, dble(m))
+    print *, searchbin(cdf, dble(m+1))
+    print *, searchbin(cdf, -1d0)
+    
+!     do i = 1, N
+!         call randnum(r)
+!         print ('(F8.3,2I6)'), r, ceiling(r*m), searchbin(cdf, r)
+!     end do
+!
+!     do i = 0, m-1
+!         r = dble(i)/m
+!         if (searchbin(cdf, r) /= nint(r*m+1)) then
+!             print ('(I6)'), i
+!         end if
+!     end do
+end subroutine testsearchbin
 
 subroutine testnormtwo()
 	real(8) :: vec(2)

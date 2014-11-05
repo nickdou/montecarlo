@@ -7,7 +7,7 @@ program montecarlo
     character(128) :: disp, relax
     logical :: one, mt, vol, gf
     integer :: nemit, ncell, ntime, maxscat, maxcoll
-    real(8) :: length, side, wall, a, b, c, d, tend, T, Thot, Tcold
+    real(8) :: tend, length, side, wall, a, b, c, d, T, Thot, Tcold
     
     character(128) :: whichsim
     
