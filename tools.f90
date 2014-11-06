@@ -49,8 +49,8 @@ character(13) function readtimer()
     
     mils = mod(elapsed, countrate)/dble(countrate)
     secs = mod(elapsed / countrate, 60_8)
-    mins = mod(elapsed / (60*countrate), 60_8)
-    hrs  = mod(elapsed / (3600*countrate), 1000_8)
+    mins = mod(elapsed / (60_8*countrate), 60_8)
+    hrs  = mod(elapsed / (3600_8*countrate), 1000_8)
     
     write(readtimer,'(I3,A,I2.2,A,I2.2,F0.3)') hrs, ':', mins, ':', secs, mils
 end function readtimer
@@ -62,7 +62,7 @@ subroutine initomp(n)
 !$  if (present(n)) then
 !$      nthreads = min(nthreads, n)
 !$  end if
-!$  print ('(A,I2,A,/)'), 'OMP enabled, ', nthreads, ' threads available'
+!$  print ('(A,I2,A)'), 'OMP enabled, ', nthreads, ' threads available'
 end subroutine
 
 subroutine initrand(mt)

@@ -10,19 +10,19 @@ module simulation
     
     public
     
+    interface writeresults
+        module procedure writeresults_unit, writeresults_file
+    end interface writeresults
+    
 contains
 
-subroutine initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+subroutine preinit(disp, relax, one, mt, ntime, tend, T)
     character(len=*), intent(in) :: disp, relax
-    logical, intent(in) :: one, mt, vol, gf
-    integer, intent(in) :: nemit, ncell, ntime
-    real(8), intent(in) :: length, side, tend, T, Thot, Tcold
-    integer, parameter :: nbdry = 6
-!     type(axis) :: grid, vgen
-    type(boundary) :: bdry_arr(nbdry)
-    real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
-    integer :: emit_arr(nbdry)
+    logical, intent(in) :: one, mt
+    integer, intent(in) :: ntime
+    real(8), intent(in) :: tend, T
     
+    call starttimer()
     if (one) then
         call initomp(1)
     else
@@ -32,18 +32,31 @@ subroutine initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
 
     call initmat(disp, relax, T)
     call initdist()
-
-!     grid = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, ncell)
-!     call setgrid(tend, ntime, grid)
+    
     call settime(tend, ntime)
-    call setgrid((/0d0, 0d0, 1d0/), 0d0, length, ncell, product(corner))
-    call initrecord((/0d0, 0d0, 1d0/))
+end subroutine preinit
+
+subroutine initisot(vol, nemit, ngrid, length, side, Thot, Tcold)
+    logical, intent(in) :: vol
+    integer, intent(in) :: nemit, ngrid
+    real(8), intent(in) :: length, side, Thot, Tcold
+    integer, parameter :: nbdry = 6
+!     type(axis) :: grid, vgen
+    type(boundary) :: bdry_arr(nbdry)
+    real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
+!     integer :: emit_arr(nbdry)
 
     origin = (/0d0, 0d0, 0d0/)
     xvec = (/side, 0d0, 0d0/)
     yvec = (/0d0, side, 0d0/)
     zvec = (/0d0, 0d0, length/)
     corner = xvec + yvec + zvec
+
+!     grid = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, ngrid)
+!     call setgrid(tend, ntime, grid)
+    call setgrid((/0d0, 0d0, 1d0/), 0d0, length, ngrid, product(corner), (Tcold - Thot)/length)
+    call initrecord((/0d0, 0d0, 1d0/))
+
     bdry_arr(1) = makebdry(ISOT_BC, origin, xvec, yvec, Thot)
     bdry_arr(2) = makebdry(SPEC_BC, origin, yvec, zvec)
     bdry_arr(3) = makebdry(SPEC_BC, origin, zvec, xvec)
@@ -52,7 +65,7 @@ subroutine initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
     bdry_arr(6) = makebdry(SPEC_BC, corner, -xvec, -zvec)
 !     call setbdry(bdry_arr, product(corner))
     call setbdry(bdry_arr)
-    call calculateemit(nemit)
+!     call calculateemit(nemit)
     
 !     vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, 0)
 !     call setvolumetric(vol, vgen)
@@ -60,61 +73,67 @@ subroutine initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
         call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
     end if
     
-    emit_arr = getemit()
-    print ('(/,A)'), 'Isothermal'
-    print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
-    print ('(A12,ES15.8)'), 'ktheory = ', ktheory
-    print ('(A12,16I10)'),  'emit_arr = ', emit_arr
+    call postinit(nemit, nbdry)
+!     emit_arr = getemit()
+!     print ('(/,A)'), 'Isothermal'
+!     print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
+!     print ('(A12,ES15.8)'), 'ktheory = ', ktheory
+!     print ('(A12,16I10)'),  'emit_arr = ', emit_arr
 end subroutine initisot
 
-subroutine initbulk(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
-    character(len=*), intent(in) :: disp, relax
-    logical, intent(in) :: one, mt, vol, gf
-    integer, intent(in) :: nemit, ncell, ntime
-    real(8), intent(in) :: length, side, tend, T, Thot, Tcold
-    real(8) :: zvec(3)
+subroutine initbulk(vol, nemit, ngrid, length, side, Thot, Tcold)
+    logical, intent(in) :: vol
+    integer, intent(in) :: nemit, ngrid
+    real(8), intent(in) :: length, side, Thot, Tcold
+    integer, parameter :: nbdry = 6
+    type(boundary) :: bdry_arr(nbdry)
+    real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
 
-    call initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
-
+    origin = (/0d0, 0d0, 0d0/)
+    xvec = (/side, 0d0, 0d0/)
+    yvec = (/0d0, side, 0d0/)
     zvec = (/0d0, 0d0, length/)
-    call setbdrypair(1, 4, zvec)
-    call calculateemit(nemit)
+    corner = xvec + yvec + zvec
 
-    print ('(/,A)'), 'Bulk'
+    call setgrid((/0d0, 0d0, 1d0/), 0d0, length, ngrid, product(corner), (Tcold - Thot)/length)
+    call initrecord((/0d0, 0d0, 1d0/))
+
+    bdry_arr(1) = makebdry(PERI_BC, origin, xvec, yvec, Thot)
+    bdry_arr(2) = makebdry(SPEC_BC, origin, yvec, zvec)
+    bdry_arr(3) = makebdry(SPEC_BC, origin, zvec, xvec)
+    bdry_arr(4) = makebdry(PERI_BC, corner, -yvec, -xvec, Tcold)
+    bdry_arr(5) = makebdry(SPEC_BC, corner, -zvec, -yvec)
+    bdry_arr(6) = makebdry(SPEC_BC, corner, -xvec, -zvec)
+    call setbdry(bdry_arr)
+
+    if (vol) then
+        call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
+    end if
+    call setbdrypair(1, 4, zvec)
+    
+    call postinit(nemit, nbdry)
 end subroutine initbulk
 
-subroutine initfilm(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
-    character(len=*), intent(in) :: disp, relax
-    logical, intent(in) :: one, mt, vol, gf
-    integer, intent(in) :: nemit, ncell, ntime
-    real(8), intent(in) :: length, side, tend, T, Thot, Tcold
+subroutine initfilm(vol, nemit, ngrid, length, side, Thot, Tcold)
+    logical, intent(in) :: vol
+    integer, intent(in) :: nemit, ngrid
+    real(8), intent(in) :: length, side, Thot, Tcold
     integer, parameter :: nbdry = 6
 !     type(axis) :: grid, vgen
     type(boundary) :: bdry_arr(nbdry)
     real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
-    integer :: emit_arr(nbdry)
-
-    if (one) then
-        call initomp(1)
-    else
-        call initomp()
-    end if
-    call initrand(mt)
-
-    call initmat(disp, relax, T)
-    call initdist()
-
-!     grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ncell)
-!     call setgrid(tend, ntime, grid)
-    call settime(tend, ntime)
-    call setgrid((/0d0, 1d0, 0d0/), 0d0, side, ncell, product(corner))
-    call initrecord((/0d0, 0d0, 1d0/))
+!     integer :: emit_arr(nbdry)
 
     origin = (/0d0, 0d0, 0d0/)
     xvec = (/length, 0d0, 0d0/)
     yvec = (/0d0, side, 0d0/)
     zvec = (/0d0, 0d0, length/)
     corner = xvec + yvec + zvec
+
+!     grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ngrid)
+!     call setgrid(tend, ntime, grid)
+    call setgrid((/0d0, 1d0, 0d0/), 0d0, side, ngrid, product(corner), (Tcold - Thot)/length)
+    call initrecord((/0d0, 0d0, 1d0/))
 
     bdry_arr(1) = makebdry(PERI_BC, origin, xvec, yvec, Thot)
     bdry_arr(2) = makebdry(SPEC_BC, origin, yvec, zvec)
@@ -125,48 +144,31 @@ subroutine initfilm(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, 
 !     call setbdry(bdry_arr, product(corner))
     call setbdry(bdry_arr)
     call setbdrypair(1, 4, zvec)
-    call calculateemit(nemit)
+!     call calculateemit(nemit)
 
 !     vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, 0)
 !     call setvolumetric(vol, vgen)
     if (vol) then
         call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
     end if
-
-    emit_arr = getemit()
-    print ('(/,A)'), 'Film'
-    print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
-    print ('(A12,ES15.8)'), 'ktheory = ', ktheory
-    print ('(A12,16I10)'),   'emit_arr = ', emit_arr
+    
+    call postinit(nemit, nbdry)
+!     emit_arr = getemit()
+!     print ('(/,A)'), 'Film'
+!     print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
+!     print ('(A12,ES15.8)'), 'ktheory = ', ktheory
+!     print ('(A12,16I10)'),   'emit_arr = ', emit_arr
 end subroutine initfilm
 
-subroutine inithollow(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold)
-    character(len=*), intent(in) :: disp, relax
-    logical, intent(in) :: one, mt, vol, gf
-    integer, intent(in) :: nemit, ncell, ntime
-    real(8), intent(in) :: length, side, wall, tend, T, Thot, Tcold
+subroutine inithollow(vol, nemit, ngrid, length, side, wall, Thot, Tcold)
+    logical, intent(in) :: vol
+    integer, intent(in) :: nemit, ngrid
+    real(8), intent(in) :: length, side, wall, Thot, Tcold
     integer, parameter :: nbdry = 16
 !     type(axis) :: grid, vgen
     type(boundary) :: bdry_arr(nbdry)
     real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3), xwall(3), ywall(3)
-    integer :: emit_arr(nbdry)
-
-    if (one) then
-        call initomp(1)
-    else
-        call initomp()
-    end if
-    call initrand(mt)
-
-    call initmat(disp, relax, T)
-    call initdist()
-
-!     grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ncell)
-!     call setgrid(tend, ntime, grid)
-    call settime(tend, ntime)
-    call setgrid((/0d0, 1d0, 0d0/), 0d0, side, ncell, &
-        product(corner) - product(corner - 2*xwall - 2*ywall))
-    call initrecord((/0d0, 0d0, 1d0/))
+!     integer :: emit_arr(nbdry)
 
     origin = (/0d0, 0d0, 0d0/)
     xvec = (/side, 0d0, 0d0/)
@@ -175,6 +177,11 @@ subroutine inithollow(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length
     corner = xvec + yvec + zvec
     xwall = (/wall, 0d0, 0d0/)
     ywall = (/0d0, wall, 0d0/)
+
+!     grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ngrid)
+!     call setgrid(tend, ntime, grid)
+    call setgrid((/0d0, 1d0, 0d0/), 0d0, side, ngrid, product(corner) - product(corner - 2*xwall - 2*ywall), (Tcold - Thot)/length)
+    call initrecord((/0d0, 0d0, 1d0/))
 
     bdry_arr(1) = makebdry(PERI_BC, origin, xvec-xwall, ywall, Thot)
     bdry_arr(2) = makebdry(PERI_BC, origin + xvec-xwall, xwall, yvec-ywall, Thot)
@@ -202,50 +209,43 @@ subroutine inithollow(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length
     call setbdrypair(2, 8, zvec)
     call setbdrypair(3, 5, zvec)
     call setbdrypair(4, 6, zvec)
-    call calculateemit(nemit)
+!     call calculateemit(nemit)
 
 !     vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, 0)
 !     call setvolumetric(vol, vgen)
     if (vol) then
         call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
     end if
-
-    emit_arr = getemit()
-    print ('(/,A)'), 'Hollow'
-    print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
-    print ('(A12,ES15.8)'), 'ktheory = ', ktheory
-    print ('(A12,16I10)'),   'emit_arr = ', emit_arr
+    
+    call postinit(nemit, nbdry)
+!     emit_arr = getemit()
+!     print ('(/,A)'), 'Hollow'
+!     print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
+!     print ('(A12,ES15.8)'), 'ktheory = ', ktheory
+!     print ('(A12,16I10)'),   'emit_arr = ', emit_arr
 end subroutine inithollow
 
-subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold)
-    character(len=*), intent(in) :: disp, relax
-    logical, intent(in) :: one, mt
-    integer, intent(in) :: nemit, ntime
-    real(8), intent(in) :: a, b, c, d, tend, T, Thot, Tcold
+subroutine initunit(nemit, a, b, c, d, Thot, Tcold)
+    integer, intent(in) :: nemit
+    real(8), intent(in) :: a, b, c, d, Thot, Tcold
     integer, parameter :: nvert = 50
     integer, parameter :: nbdry = 34
 !     type(axis) :: grid, vgen
     type(boundary) :: bdry_arr(nbdry)
-    real(8) :: l, vertshi(3, nvert/2), verts(3, nvert), temps(nbdry), mv(3)
-    integer :: i, bdrys(4, nbdry), emit_arr(nbdry)
+    real(8) :: l, volume(3)
+    real(8) :: vertshi(3, nvert/2), verts(3, nvert), temps(nbdry), mv(3)
+    integer :: i, bdrys(4, nbdry)
+!     integer :: emit_arr(nbdry)
     logical :: tris(nbdry)
-
-    if (one) then
-        call initomp(1)
-    else
-        call initomp()
-    end if
-    call initrand(mt)
-
-    call initmat(disp, relax, T)
-    call initdist()
 
     l = c/4d0*sqrt(2d0)
 
-!     grid = makeaxis((/0d0, 0d0, 1d0/), -l, l, 1) ! ncell = 1
+!     grid = makeaxis((/0d0, 0d0, 1d0/), -l, l, 1) ! ngrid = 1
 !     call setgrid(tend, ntime, grid)
-    call settime(tend, ntime)
-    call setgrid((/0d0, 0d0, 1d0/), (/-l, -(l+a)/2, (l+a)/2, l/), (/1d0,1d0,1d0/))
+    volume(1) = 2*d*(a+b+d)*(l-a-d)
+    volume(2) = 2*d*(a+b+d)*(a+2*d) + 4*d*(a+d)*(l-b-d)
+    volume(3) = volume(1)
+    call setgrid((/0d0, 0d0, 1d0/), (/-l, -a-d, a+d, l/), volume, (/.true.,.false.,.true./), (Tcold - Thot)/(2*l))
     call initrecord((/0d0, 0d0, 1d0/))
     
     vertshi = reshape((/ &
@@ -334,18 +334,31 @@ subroutine initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Tho
     call setbdrypair(2, nbdry-1, mv)
     call setbdrypair(3, nbdry-2, mv)
     
-    call calculateemit(nemit)
+!     call calculateemit(nemit)
 
     ! No volumetric generation
 !     vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, 1d0, 0)
 !     call setvolumetric(.false., vgen)
     
-    emit_arr = getemit()
-    print ('(/,A)'), 'Unit'
-    print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
-    print ('(A12,ES15.8)'), 'ktheory = ', ktheory
-    print ('(A12,34I10)'),   'emit_arr = ', emit_arr
+    call postinit(nemit, nbdry)
+!     emit_arr = getemit()
+!     print ('(/,A)'), 'Unit'
+!     print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
+!     print ('(A12,ES15.8)'), 'ktheory = ', ktheory
+!     print ('(A12,34I10)'),   'emit_arr = ', emit_arr
 end subroutine initunit
+
+subroutine postinit(nemit, nbdry)
+    integer, intent(in) :: nemit, nbdry
+    integer :: emit_arr(nbdry)
+    
+    call calculateemit(nemit)
+    emit_arr = getemit()
+    
+    print *, ' ktheory = ', ktheory
+    print *, '    Eeff = ', geteeff()
+    print *, 'emit_arr = ', emit_arr
+end subroutine postinit
 
 subroutine simulate(maxscat)
     integer, intent(in) :: maxscat
@@ -355,6 +368,7 @@ subroutine simulate(maxscat)
     
     progress = 0
     nemit = getnemit()
+    print *
     !$omp parallel do private(phn, t, nscat) shared(progress)
     do i = 1, nemit
         phn = emit()
@@ -378,14 +392,15 @@ end subroutine simulate
 
 subroutine simulateone(maxscat, maxcoll)
     integer, intent(in) :: maxscat, maxcoll
-    integer :: ncoll, nscat, ntraj
-    real(8) :: t, traj(3, 0:2*maxcoll)
+    integer :: maxtraj, ncoll, nscat
+    real(8) :: t
+!     real(8) :: traj(3, 0:2*maxcoll)
     type(phonon) :: phn
     
     phn = emit()
     
-    ntraj = 2*maxcoll
-    call inittraj( ntraj, getpos(phn) )
+    maxtraj = 2*maxcoll
+    call inittraj( maxtraj, getpos(phn) )
 
     t = 0
     ncoll = 0
@@ -399,37 +414,111 @@ subroutine simulateone(maxscat, maxcoll)
         end if
     end do
     
-    call gettraj( ntraj, traj )
-    call writematlab( transpose(traj(:, 0:ntraj)), '(ES16.8)', 2, 'traj', 'x' )
+!     call gettraj( ntraj, traj )
+!     call writematlab( transpose(traj(:, 0:ntraj)), '(ES16.8)', 2, 'traj', 'x' )
 end subroutine simulateone
 
-subroutine writetemp(ncell, ntime)
-    integer, intent(in) :: ncell, ntime
-    real(8) :: T(ncell, 0:ntime)
+! subroutine writetemp(ngrid, ntime)
+!     integer, intent(in) :: ngrid, ntime
+!     real(8) :: T(ngrid, 0:ntime)
+!
+!     if (ntime == 0) then
+!         T(:,0) = getsteadytemp()
+!         call writematlab(T(:,0), '(ES16.8)', 2, 'temp', 'T')
+!     else
+!         T = gettranstemp()
+!         call writematlab(T, '(ES16.8)', 2, 'temp', 'T')
+!     end if
+! end subroutine writetemp
+!
+! subroutine writeflux(ngrid)
+!     integer, intent(in) :: ngrid
+!     real(8) :: flux(ngrid)
+!
+!     flux = getgridflux()
+!     call writematlab(flux, '(ES16.8)', 3, 'flux', 'j')
+! end subroutine writeflux
+
+subroutine writeresults_unit(one, maxcoll, ngrid, ntime, unit)
+    logical, intent(in) :: one
+    integer, intent(in) :: maxcoll, ngrid, ntime
+    integer, intent(in), optional :: unit
+    real(8) :: traj(3, 0:2*maxcoll), flux(ngrid), T(ngrid, 0:ntime)
+    character(16) :: col
+    character(32) :: fmt, row
+    integer :: u, ntraj
     
-    if (ntime == 0) then
-        T(:,0) = getsteadytemp()
-        call writematlab(T(:,0), '(ES16.8)', 2, 'temp', 'T')
+    if (present(unit)) then
+        u = unit
     else
-        T = gettranstemp()
-        call writematlab(T, '(ES16.8)', 2, 'temp', 'T')
+        u = 6
     end if
-end subroutine writetemp
 
-subroutine writeflux(ncell)
-    integer, intent(in) :: ncell
-    real(8) :: flux(ncell)
+    write(u,*)
     
-    flux = getgridflux()
-    call writematlab(flux, '(ES16.8)', 3, 'flux', 'j')
-end subroutine writeflux
+    if (one) then
+        ntraj = ubound(traj, 2)
+        call gettraj(ntraj, traj)
+    
+        write(col,*) ntraj+1 ! Add one for zero index
+        fmt = '(A4,'// trim(adjustl(col)) //'ES16.8)'
+        row = '(4X,'// trim(adjustl(col)) //'ES16.8)'
+        
+        write(u,fmt) 'x =[', traj(1, 0:ntraj)
+        write(u,row) traj(2, 0:ntraj)
+        write(u,row) traj(3, 0:ntraj)
+        write(u,'(A5)') '   ];'
+        
+        return
+    end if
+    
+    fmt = '(A4,ES16.8,A)'
+    write(u,fmt) 'k = ', getcond(), ';'
+    
+    if (ngrid == 0) then
+        write(u,fmt) 'j = ', getflux(), ';'
+    else
+        write(col,*) ngrid
+        fmt = '(A4,'// trim(adjustl(col)) //'ES16.8)'
+        row = '(4X,'// trim(adjustl(col)) //'ES16.8)'
+        
+        flux = getgridflux()
+        write(u,fmt) 'j =[', flux
+        write(u,'(A5)') '   ];'
+        
+        if (ntime == 0) then
+            T(:,0) = getsteadytemp()
+            write(u,fmt) 'T =[', T(:,0)
+        else
+            T = gettranstemp()
+            write(u,fmt) 'T =[', T(:,0)
+            write(u,row) T(:,1:ntime)
+        end if
+        write(u,'(A5)') '   ];'
+    end if
+end subroutine writeresults_unit
 
-real(8) function getcond(deltaT, length)
-    real(8), intent(in) :: deltaT, length
-    real(8) :: flux
+subroutine writeresults_file(one, maxcoll, ngrid, ntime, unit, filename, id)
+    logical, intent(in) :: one
+    integer, intent(in) :: maxcoll, ngrid, ntime, unit
+    character(128), intent(in) :: filename, id
+    character(32) :: fmt
     
-    flux = getflux()
-    getcond = -flux *length/deltaT
-end function getcond
+    if (.not. one) then
+        fmt = '(A4,ES16.8,A)'
+        print (fmt), 'k = ', getcond(), ';'
+        print (fmt), 'j = ', getflux(), ';'
+    end if
+    
+    if (unit == 6) then
+        print *, 'Warning: writeresults: Cannot use unit 6'
+        return
+    end if
+    
+    open(unit, file=filename, action='write', position='append')
+    write(unit,'(/,2A)') '%%  ', id
+    call writeresults_unit(one, maxcoll, ngrid, ntime, unit)
+    close(unit)
+end subroutine writeresults_file
 
 end module simulation

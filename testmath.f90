@@ -119,24 +119,24 @@ subroutine testsearchbin()
 	real(8) :: cdf(m), r
 	integer :: i
 	
-	cdf = (/(dble(i), i=1,m)/)
+	cdf = (/(dble(i)/m, i=1,m)/)
     call printarray(cdf, '(F8.3)', row=.true.)
     
-    print *, searchbin(cdf, dble(m))
-    print *, searchbin(cdf, dble(m+1))
-    print *, searchbin(cdf, -1d0)
+!     print *, searchbin(cdf, dble(m))
+!     print *, searchbin(cdf, dble(m+1))
+!     print *, searchbin(cdf, -1d0)
     
-!     do i = 1, N
-!         call randnum(r)
-!         print ('(F8.3,2I6)'), r, ceiling(r*m), searchbin(cdf, r)
-!     end do
-!
-!     do i = 0, m-1
-!         r = dble(i)/m
-!         if (searchbin(cdf, r) /= nint(r*m+1)) then
-!             print ('(I6)'), i
-!         end if
-!     end do
+    do i = 1, N
+        call randnum(r)
+        print ('(F8.3,2I6)'), r, ceiling(r*m), searchbin(cdf, r)
+    end do
+
+    do i = 0, m-1
+        r = dble(i)/m
+        if (searchbin(cdf, r) /= nint(r*m+1)) then
+            print ('(I6)'), i
+        end if
+    end do
 end subroutine testsearchbin
 
 subroutine testnormtwo()

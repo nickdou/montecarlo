@@ -4,10 +4,12 @@ program test
     
     real(8) :: a, b
     character(64) :: cmd
+    integer :: i
     
+    open(2, file='test.txt', action='write', position='append')
+    call writearr(reshape((/(dble(i), i=1,20)/),(/5,4/)), 2)
+    close(2)
 !     call testsystem()
-    print *, (1 - 1/2)*1d0
-    print *, 1d0*(2-1)/2
     
 !     call testparse()
 
@@ -15,6 +17,27 @@ program test
 !     call starttimer()
 !     call testprogress()
 contains
+
+subroutine writearr(arr, un)
+    real(8), intent(in) :: arr(:,0:)
+    integer, intent(in), optional :: un
+    character(16) :: col
+    character(32) :: fmt, row
+    integer :: unit
+    
+    if (present(un)) then
+        unit = un
+    else
+        unit = 6
+    end if
+    
+    write (col, *) size(arr,1)
+    fmt = '(A4,'// trim(adjustl(col)) //'F8.1)'
+    row = '(4X,'// trim(adjustl(col)) //'F8.1)'
+    write (unit, '(A,/,A)') fmt, row
+    write (unit, fmt) 'A = ', arr(:,0)
+    write (unit, row) arr(:,1:ubound(arr,2))
+end subroutine writearr
 
 subroutine testsystem()
     integer :: status

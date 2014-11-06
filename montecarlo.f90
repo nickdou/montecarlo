@@ -4,39 +4,40 @@ program montecarlo
     use simulation
     implicit none
     
-    character(128) :: disp, relax
-    logical :: one, mt, vol, gf
-    integer :: nemit, ncell, ntime, maxscat, maxcoll
+    character(128) :: disp, relax, output
+    logical :: one, mt, vol
+    integer :: nemit, ngrid, ntime, maxscat, maxcoll
     real(8) :: tend, length, side, wall, a, b, c, d, T, Thot, Tcold
     
-    character(128) :: whichsim
+    character(128) :: stamp, whichsim
     
-    print ('(A)'), timestamp()
-    call starttimer()
+    stamp = timestamp()
+    print ('(A,/,A)'), '----------------------------------------', trim(stamp)
     
     call parsecmdargs()
+    call preinit(disp, relax, one, mt, ntime, tend, T)
     
     call get_command_argument(1, whichsim)
+    print ('(/,A)'), trim(whichsim)
     select case (whichsim)
         case ('isot')
             call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
-            call initisot(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+            call initisot(vol, nemit, ngrid, length, side, Thot, Tcold)
         case ('bulk')
             call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
-            call initbulk(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+            call initbulk(vol, nemit, ngrid, length, side, Thot, Tcold)
         case ('film')
             call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
-            call initfilm(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, tend, T, Thot, Tcold)
+            call initfilm(vol, nemit, ngrid, length, side, Thot, Tcold)
         case ('hollow')
             call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1/) == 1)
-            call inithollow(disp, relax, one, mt, vol, gf, nemit, ncell, ntime, length, side, wall, tend, T, Thot, Tcold)
+            call inithollow(vol, nemit, ngrid, length, side, wall, Thot, Tcold)
         case ('unit')
-            vol = .false.
-            gf  = .false.
-            ncell = 1
-            length = c/2d0*sqrt(2d0)
+!             vol = .false.
+!             ngrid = 1
+!             length = c/2d0*sqrt(2d0)
             call printargs((/1,1,1,1,0,0,1,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1/) == 1)
-            call initunit(disp, relax, one, mt, nemit, ntime, a, b, c, d, tend, T, Thot, Tcold)
+            call initunit(nemit, a, b, c, d, Thot, Tcold)
         case default
             print *, 'Invalid sim type: "', trim(whichsim), '"'
             call exit
@@ -47,14 +48,19 @@ program montecarlo
     else
         call simulate(maxscat)
         
-        if (ncell > 1) call writetemp(ncell, ntime)
-        
-        if (gf) then
-            call writeflux(ncell)
-        else
-            print ('(A,ES16.8,A)'), 'j = ', getflux(), ' W/m^2'
-            print ('(A,ES16.8,A)'), 'k = ', getcond(Tcold - Thot, length), ' W/m-K'
-        end if
+!         if (ngrid > 1) then
+!             call writetemp(ngrid, ntime)
+!             call writeflux(ngrid)
+!         else
+!             print ('(A,ES16.8,A)'), 'j = ', getflux(), ' W/m^2'
+!             print ('(A,ES16.8,A)'), 'k = ', getcond(Tcold - Thot, length), ' W/m-K'
+!         end if
+    end if
+    
+    if (output == '') then
+        call writeresults(one, maxcoll, ngrid, ntime)
+    else
+        call writeresults(one, maxcoll, ngrid, ntime, 2, output, stamp)
     end if
     
 contains
@@ -66,17 +72,17 @@ subroutine parsecmdargs()
     
     disp  = './input/Si_disp.txt'
     relax = './input/Si_relax.txt'
+    output = ''
     
     one = .false.
     mt  = .true.
     vol = .false.
-    gf  = .false.
 
     nemit = 10000
-    ncell = 1
+    ngrid = 0
     ntime = 0               !zero for steady
     maxscat = 1             !zero for time limit only
-    maxcoll = 10*maxscat    !for single phonon simulation
+    maxcoll = 10            !for single phonon simulation
     
     tend = 100d-9
     
@@ -109,22 +115,24 @@ subroutine parsecmdargs()
                 case ('relax')
                     charval = '"'// val //'"'
                     read(charval,*) relax
+                case ('output')
+                    charval = '"'// val //'"'
+                    read(charval,*) output
                 case ('one')
                     read(val,*) one
                 case ('mt')
                     read(val,*) mt
                 case ('vol')
                     read(val,*) vol
-                case ('gf')
-                    read(val,*) gf
                 case ('nemit')
                     read(val,*) nemit
-                case ('ncell')
-                    read(val,*) ncell
+                case ('ngrid')
+                    read(val,*) ngrid
                 case ('ntime')
                     read(val,*) ntime
                 case ('maxscat')
                     read(val,*) maxscat
+                    if (maxcoll == 10) maxcoll = 10*maxscat
                 case ('maxcoll')
                     read(val,*) maxcoll
                 case ('tend')
@@ -161,28 +169,28 @@ end subroutine parsecmdargs
 subroutine printargs(isused)
     logical, intent(in) :: isused(22)
     
-    if (isused(1))  write(*,'(A12,A)') 'disp = ', trim(disp)
-    if (isused(2))  write(*,'(A12,A)') 'relax = ', trim(relax)
-    if (isused(3))  write(*,'(A12,L2)') 'one = ', one
-    if (isused(4))  write(*,'(A12,L2)') 'mt = ', mt
-    if (isused(5))  write(*,'(A12,L2)') 'vol = ', vol
-    if (isused(6))  write(*,'(A12,L2)') 'gf = ', gf
-    if (isused(7))  write(*,'(A12,I10)') 'nemit = ', nemit
-    if (isused(8))  write(*,'(A12,I10)') 'ncell = ', ncell
-    if (isused(9))  write(*,'(A12,I10)') 'ntime = ', ntime
-    if (isused(10)) write(*,'(A12,I10)') 'maxscat = ', maxscat
-    if (isused(11)) write(*,'(A12,I10)') 'maxcoll = ', maxcoll
-    if (isused(12)) write(*,'(A12,ES10.3)') 'tend = ', tend
-    if (isused(13)) write(*,'(A12,ES10.3)') 'length = ', length
-    if (isused(14)) write(*,'(A12,ES10.3)') 'side = ', side
-    if (isused(15)) write(*,'(A12,ES10.3)') 'wall = ', wall
-    if (isused(16)) write(*,'(A12,ES10.3)') 'a = ', a
-    if (isused(17)) write(*,'(A12,ES10.3)') 'b = ', b
-    if (isused(18)) write(*,'(A12,ES10.3)') 'c = ', c
-    if (isused(19)) write(*,'(A12,ES10.3)') 'd = ', d
-    if (isused(20)) write(*,'(A12,F10.3)') 'T = ', T
-    if (isused(21)) write(*,'(A12,F10.3)') 'Thot = ', Thot
-    if (isused(22)) write(*,'(A12,F10.3)') 'Tcold = ', Tcold
+    if (isused(1))  write(*,'(A12,A)')      '   disp = ', trim(disp)
+    if (isused(2))  write(*,'(A12,A)')      '  relax = ', trim(relax)
+    if (isused(3))  write(*,'(A12,A)')      ' output = ', trim(output)
+    if (isused(4))  write(*,'(A12,L2)')     '    one = ', one
+    if (isused(5))  write(*,'(A12,L2)')     '     mt = ', mt
+    if (isused(6))  write(*,'(A12,L2)')     '    vol = ', vol
+    if (isused(7))  write(*,'(A12,I11)')    '  nemit = ', nemit
+    if (isused(8))  write(*,'(A12,I11)')    '  ngrid = ', ngrid
+    if (isused(9))  write(*,'(A12,I11)')    '  ntime = ', ntime
+    if (isused(10)) write(*,'(A12,I11)')    'maxscat = ', maxscat
+    if (isused(11)) write(*,'(A12,I11)')    'maxcoll = ', maxcoll
+    if (isused(12)) write(*,'(A12,ES10.3)') '   tend = ', tend
+    if (isused(13)) write(*,'(A12,ES10.3)') ' length = ', length
+    if (isused(14)) write(*,'(A12,ES10.3)') '   side = ', side
+    if (isused(15)) write(*,'(A12,ES10.3)') '   wall = ', wall
+    if (isused(16)) write(*,'(A12,ES10.3)') '      a = ', a
+    if (isused(17)) write(*,'(A12,ES10.3)') '      b = ', b
+    if (isused(18)) write(*,'(A12,ES10.3)') '      c = ', c
+    if (isused(19)) write(*,'(A12,ES10.3)') '      d = ', d
+    if (isused(20)) write(*,'(A12,F10.3)')  '      T = ', T
+    if (isused(21)) write(*,'(A12,F10.3)')  '   Thot = ', Thot
+    if (isused(22)) write(*,'(A12,F10.3)')  '  Tcold = ', Tcold
     
 end subroutine printargs
 
