@@ -36,9 +36,9 @@ subroutine preinit(disp, relax, one, mt, ntime, tend, T)
     call settime(tend, ntime)
 end subroutine preinit
 
-subroutine initisot(vol, nemit, ngrid, length, side, Thot, Tcold)
+subroutine initisot(vol, ngrid, length, side, Thot, Tcold)
     logical, intent(in) :: vol
-    integer, intent(in) :: nemit, ngrid
+    integer, intent(in) :: ngrid
     real(8), intent(in) :: length, side, Thot, Tcold
     integer, parameter :: nbdry = 6
 !     type(axis) :: grid, vgen
@@ -73,7 +73,6 @@ subroutine initisot(vol, nemit, ngrid, length, side, Thot, Tcold)
         call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
     end if
     
-    call postinit(nemit, nbdry)
 !     emit_arr = getemit()
 !     print ('(/,A)'), 'Isothermal'
 !     print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
@@ -81,42 +80,19 @@ subroutine initisot(vol, nemit, ngrid, length, side, Thot, Tcold)
 !     print ('(A12,16I10)'),  'emit_arr = ', emit_arr
 end subroutine initisot
 
-subroutine initbulk(vol, nemit, ngrid, length, side, Thot, Tcold)
+subroutine initbulk(vol, ngrid, length, side, Thot, Tcold)
     logical, intent(in) :: vol
-    integer, intent(in) :: nemit, ngrid
+    integer, intent(in) :: ngrid
     real(8), intent(in) :: length, side, Thot, Tcold
-    integer, parameter :: nbdry = 6
-    type(boundary) :: bdry_arr(nbdry)
-    real(8) :: origin(3), corner(3), xvec(3), yvec(3), zvec(3)
-
-    origin = (/0d0, 0d0, 0d0/)
-    xvec = (/side, 0d0, 0d0/)
-    yvec = (/0d0, side, 0d0/)
-    zvec = (/0d0, 0d0, length/)
-    corner = xvec + yvec + zvec
-
-    call setgrid((/0d0, 0d0, 1d0/), 0d0, length, ngrid, product(corner), (Tcold - Thot)/length)
-    call initrecord((/0d0, 0d0, 1d0/))
-
-    bdry_arr(1) = makebdry(PERI_BC, origin, xvec, yvec, Thot)
-    bdry_arr(2) = makebdry(SPEC_BC, origin, yvec, zvec)
-    bdry_arr(3) = makebdry(SPEC_BC, origin, zvec, xvec)
-    bdry_arr(4) = makebdry(PERI_BC, corner, -yvec, -xvec, Tcold)
-    bdry_arr(5) = makebdry(SPEC_BC, corner, -zvec, -yvec)
-    bdry_arr(6) = makebdry(SPEC_BC, corner, -xvec, -zvec)
-    call setbdry(bdry_arr)
-
-    if (vol) then
-        call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
-    end if
-    call setbdrypair(1, 4, zvec)
     
-    call postinit(nemit, nbdry)
+    call initisot(vol, ngrid, length, side, Thot, Tcold)
+    
+    call setbdrypair(1, 4, (/0d0, 0d0, length/))
 end subroutine initbulk
 
-subroutine initfilm(vol, nemit, ngrid, length, side, Thot, Tcold)
+subroutine initfilm(vol, ngrid, length, side, Thot, Tcold)
     logical, intent(in) :: vol
-    integer, intent(in) :: nemit, ngrid
+    integer, intent(in) :: ngrid
     real(8), intent(in) :: length, side, Thot, Tcold
     integer, parameter :: nbdry = 6
 !     type(axis) :: grid, vgen
@@ -152,7 +128,6 @@ subroutine initfilm(vol, nemit, ngrid, length, side, Thot, Tcold)
         call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
     end if
     
-    call postinit(nemit, nbdry)
 !     emit_arr = getemit()
 !     print ('(/,A)'), 'Film'
 !     print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
@@ -160,9 +135,9 @@ subroutine initfilm(vol, nemit, ngrid, length, side, Thot, Tcold)
 !     print ('(A12,16I10)'),   'emit_arr = ', emit_arr
 end subroutine initfilm
 
-subroutine inithollow(vol, nemit, ngrid, length, side, wall, Thot, Tcold)
+subroutine inithollow(vol, ngrid, length, side, wall, Thot, Tcold)
     logical, intent(in) :: vol
-    integer, intent(in) :: nemit, ngrid
+    integer, intent(in) :: ngrid
     real(8), intent(in) :: length, side, wall, Thot, Tcold
     integer, parameter :: nbdry = 16
 !     type(axis) :: grid, vgen
@@ -217,7 +192,6 @@ subroutine inithollow(vol, nemit, ngrid, length, side, wall, Thot, Tcold)
         call setvolumetric((/0d0, 0d0, 1d0/), (/0d0, length/))
     end if
     
-    call postinit(nemit, nbdry)
 !     emit_arr = getemit()
 !     print ('(/,A)'), 'Hollow'
 !     print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
@@ -225,8 +199,7 @@ subroutine inithollow(vol, nemit, ngrid, length, side, wall, Thot, Tcold)
 !     print ('(A12,16I10)'),   'emit_arr = ', emit_arr
 end subroutine inithollow
 
-subroutine initunit(nemit, a, b, c, d, Thot, Tcold)
-    integer, intent(in) :: nemit
+subroutine initunit(a, b, c, d, Thot, Tcold)
     real(8), intent(in) :: a, b, c, d, Thot, Tcold
     integer, parameter :: nvert = 50
     integer, parameter :: nbdry = 34
@@ -239,7 +212,12 @@ subroutine initunit(nemit, a, b, c, d, Thot, Tcold)
     logical :: tris(nbdry)
 
     l = c/4d0*sqrt(2d0)
-
+    print *, '       l = ', l
+    
+    if (any((/l-a-d, l-b-d/) <= eps)) then
+        print *, 'Error: initunit: Unphysical geometry'
+        call exit
+    end if
 !     grid = makeaxis((/0d0, 0d0, 1d0/), -l, l, 1) ! ngrid = 1
 !     call setgrid(tend, ntime, grid)
     volume(1) = 2*d*(a+b+d)*(l-a-d)
@@ -340,7 +318,6 @@ subroutine initunit(nemit, a, b, c, d, Thot, Tcold)
 !     vgen = makeaxis((/0d0, 0d0, 1d0/), 0d0, 1d0, 0)
 !     call setvolumetric(.false., vgen)
     
-    call postinit(nemit, nbdry)
 !     emit_arr = getemit()
 !     print ('(/,A)'), 'Unit'
 !     print ('(A12,ES15.8)'), 'Eeff = ', geteeff()
@@ -348,16 +325,14 @@ subroutine initunit(nemit, a, b, c, d, Thot, Tcold)
 !     print ('(A12,34I10)'),   'emit_arr = ', emit_arr
 end subroutine initunit
 
-subroutine postinit(nemit, nbdry)
-    integer, intent(in) :: nemit, nbdry
-    integer :: emit_arr(nbdry)
+subroutine postinit(nemit)
+    integer, intent(in) :: nemit
     
     call calculateemit(nemit)
-    emit_arr = getemit()
     
     print *, ' ktheory = ', ktheory
     print *, '    Eeff = ', geteeff()
-    print *, 'emit_arr = ', emit_arr
+    print *, '   nemit = ', getnemit()
 end subroutine postinit
 
 subroutine simulate(maxscat)
@@ -368,7 +343,6 @@ subroutine simulate(maxscat)
     
     progress = 0
     nemit = getnemit()
-    print *
     !$omp parallel do private(phn, t, nscat) shared(progress)
     do i = 1, nemit
         phn = emit()
@@ -417,6 +391,10 @@ subroutine simulateone(maxscat, maxcoll)
 !     call gettraj( ntraj, traj )
 !     call writematlab( transpose(traj(:, 0:ntraj)), '(ES16.8)', 2, 'traj', 'x' )
 end subroutine simulateone
+
+subroutine postsimulate()
+    print *, '   nstop = ', getnstop()
+end subroutine postsimulate
 
 ! subroutine writetemp(ngrid, ntime)
 !     integer, intent(in) :: ngrid, ntime

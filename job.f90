@@ -18,8 +18,10 @@ program job
     logdir = ''
     do i = 1,3
         do j = 1,4
-            jobname = 'octet_unit_08_02_'// trim(c(i)) //'_0'// d(j)(3:4) //'_1e6_1e3'
-            exec = 'time ./run unit a=0.8d-6 b=0.2d-6 c='// trim(c(i)) //'d-6 d='// trim(d(j)) //'d-6 nemit=1000000 maxscat=1000'
+            jobname = 'octet_unit_08_02_'// trim(c(i)) //'_0'// d(j)(3:4) //'_1e6_1e3_5d-7'
+            exec = 'time ./run unit a=0.8d-6 b=0.2d-6 c='// &
+                trim(c(i)) //'d-6 d='// trim(d(j)) //&
+                'd-6 nemit=1000000 maxscat=1000 tend=5d-7'
             call writejob()
             print ('(A,/,A)'), trim(jobname), trim(exec)
             call system('qsub ' // filename)

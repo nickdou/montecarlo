@@ -12,7 +12,7 @@ module domain
         calculateemit, setvolumetric, getemit, getnemit, geteeff, &
         drawemittime, drawemitstate, updatestate, applybc, &
         recordtime, recorddisp, recordloc, addcumdisp, &
-        getsteadytemp, gettranstemp, getflux, getgridflux, getcond
+        getsteadytemp, gettranstemp, getflux, getgridflux, getcond, getnstop
     
 !     type axis
 !         private
@@ -56,6 +56,7 @@ module domain
     real(8), allocatable :: cumdisp(:)
     real(8), allocatable :: gridtime_arr(:,:), griddisp_arr(:,:)
     integer, allocatable :: gridloc_arr(:,:,:)
+    integer, allocatable :: nstop(:)
 
 contains
 
@@ -165,6 +166,9 @@ subroutine initrecord(dir)
         allocate( cumdisp(0:nthreads-1) )
         cumdisp = 0
     end if
+    
+    allocate( nstop(0:nthreads-1) )
+    nstop = 0
 end subroutine initrecord
 
 subroutine inittraj(num, pos)
@@ -439,10 +443,11 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     integer, intent(inout) :: ind
     real(8), intent(inout) :: x(3), dir(3), v, deltat, t
     integer, intent(out) :: bc
-    integer :: i
     real(8) :: xi(3), diri(3)
     logical :: pierced(0:nbdry)
     real(8) :: colli(2), coll(3, 0:nbdry), dt(0:nbdry)
+    integer :: i
+    integer :: threadi = 0
     
     dt(0) = min(deltat, tend - t)
     coll(:,0) = x + v*dt(0)*dir
@@ -473,6 +478,9 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     if (t >= tend) then
         bc = 0
         dir = 0
+        
+!$      threadi = omp_get_thread_num()
+        nstop(threadi) = nstop(threadi) + 1
     end if
 end subroutine updatestate
 
@@ -686,5 +694,9 @@ end function getgridflux
 real(8) pure function getcond()
     getcond = -getflux()/gradT
 end function getcond
+
+integer pure function getnstop()
+    getnstop = sum(nstop)
+end function getnstop
 
 end module domain

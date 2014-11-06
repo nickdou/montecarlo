@@ -15,6 +15,7 @@ program montecarlo
     print ('(A,/,A)'), '----------------------------------------', trim(stamp)
     
     call parsecmdargs()
+    
     call preinit(disp, relax, one, mt, ntime, tend, T)
     
     call get_command_argument(1, whichsim)
@@ -22,26 +23,27 @@ program montecarlo
     select case (whichsim)
         case ('isot')
             call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
-            call initisot(vol, nemit, ngrid, length, side, Thot, Tcold)
+            call initisot(vol, ngrid, length, side, Thot, Tcold)
         case ('bulk')
             call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
-            call initbulk(vol, nemit, ngrid, length, side, Thot, Tcold)
+            call initbulk(vol, ngrid, length, side, Thot, Tcold)
         case ('film')
             call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
-            call initfilm(vol, nemit, ngrid, length, side, Thot, Tcold)
+            call initfilm(vol, ngrid, length, side, Thot, Tcold)
         case ('hollow')
             call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1/) == 1)
-            call inithollow(vol, nemit, ngrid, length, side, wall, Thot, Tcold)
+            call inithollow(vol, ngrid, length, side, wall, Thot, Tcold)
         case ('unit')
-!             vol = .false.
-!             ngrid = 1
-!             length = c/2d0*sqrt(2d0)
+            vol = .false.
+            ngrid = 3
             call printargs((/1,1,1,1,0,0,1,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1/) == 1)
-            call initunit(nemit, a, b, c, d, Thot, Tcold)
+            call initunit(a, b, c, d, Thot, Tcold)
         case default
             print *, 'Invalid sim type: "', trim(whichsim), '"'
             call exit
     end select
+    
+    call postinit(nemit)
     
     if (one) then
         call simulateone(maxscat, maxcoll)
@@ -56,6 +58,8 @@ program montecarlo
 !             print ('(A,ES16.8,A)'), 'k = ', getcond(Tcold - Thot, length), ' W/m-K'
 !         end if
     end if
+    
+    call postsimulate()
     
     if (output == '') then
         call writeresults(one, maxcoll, ngrid, ntime)
@@ -191,6 +195,7 @@ subroutine printargs(isused)
     if (isused(20)) write(*,'(A12,F10.3)')  '      T = ', T
     if (isused(21)) write(*,'(A12,F10.3)')  '   Thot = ', Thot
     if (isused(22)) write(*,'(A12,F10.3)')  '  Tcold = ', Tcold
+    write(*,*)
     
 end subroutine printargs
 
