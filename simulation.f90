@@ -16,15 +16,17 @@ module simulation
     
 contains
 
-subroutine preinit(disp, relax, one, mt, ntime, tend, T)
+subroutine preinit(disp, relax, one, mt, maxthrd, ntime, tend, T)
     character(len=*), intent(in) :: disp, relax
     logical, intent(in) :: one, mt
-    integer, intent(in) :: ntime
+    integer, intent(in) :: maxthrd, ntime
     real(8), intent(in) :: tend, T
     
     call starttimer()
     if (one) then
         call initomp(1)
+    else if (maxthrd > 0) then
+        call initomp(maxthrd)
     else
         call initomp()
     end if

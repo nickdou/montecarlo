@@ -471,7 +471,16 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     else
         bc = bdry_arr(ind)%bc
     end if
-    x = coll(:,ind)
+    
+    xi = coll(:,ind)
+    if (sum(xi - x) < eps) then
+        print *, 'Warning: updatestate: phonon did not move'
+        print *, '  initial pos = new pos = ', x
+        print *, '  boundary index = ', ind
+        call exit
+    end if
+    x = xi
+    
     deltat = dt(ind)
     
     t = t + deltat
@@ -538,7 +547,7 @@ subroutine recordgrid(cum_arr, sign, delta, coordold, coordnew)
     dcoord = coordhi - coordlo
     if (dcoord < eps) then
         print *, 'Warning: recordgrid: dcoord = ', dcoord, ' < eps'
-        return
+        call exit
     end if
     total = dcoord/abs(coordnew - coordold)*delta
     indlo = coordtoind(coordlo)
@@ -554,9 +563,9 @@ subroutine recordgrid(cum_arr, sign, delta, coordold, coordnew)
         add(indlo) = grid(indlo) - coordlo
         add(indhi) = coordhi - grid(indhi-1)
     end if
-    if (abs(sum(add) - dcoord) > 1d-16) then
-        print *, 'Warning: recordgrid: sum(add) - dcoord = ', sum(add) - dcoord
-    end if
+!     if (abs(sum(add) - dcoord) > 1d-16) then
+!         print *, 'Warning: recordgrid: sum(add) - dcoord = ', sum(add) - dcoord
+!     end if
     add = pm*total*add/dcoord
     
     cum_arr(threadi,:) = cum_arr(threadi,:) + add

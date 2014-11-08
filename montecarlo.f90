@@ -6,7 +6,7 @@ program montecarlo
     
     character(128) :: disp, relax, output
     logical :: one, mt, vol
-    integer :: nemit, ngrid, ntime, maxscat, maxcoll
+    integer :: maxthrd, nemit, ngrid, ntime, maxscat, maxcoll
     real(8) :: tend, length, side, wall, a, b, c, d, T, Thot, Tcold
     
     character(128) :: stamp, whichsim
@@ -16,27 +16,27 @@ program montecarlo
     
     call parsecmdargs()
     
-    call preinit(disp, relax, one, mt, ntime, tend, T)
+    call preinit(disp, relax, one, mt, maxthrd, ntime, tend, T)
     
     call get_command_argument(1, whichsim)
     print ('(/,A)'), trim(whichsim)
     select case (whichsim)
         case ('isot')
-            call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
+            call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/)==1)
             call initisot(vol, ngrid, length, side, Thot, Tcold)
         case ('bulk')
-            call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
+            call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/)==1)
             call initbulk(vol, ngrid, length, side, Thot, Tcold)
         case ('film')
-            call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/) == 1)
+            call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1/)==1)
             call initfilm(vol, ngrid, length, side, Thot, Tcold)
         case ('hollow')
-            call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1/) == 1)
+            call printargs((/1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1/)==1)
             call inithollow(vol, ngrid, length, side, wall, Thot, Tcold)
         case ('unit')
             vol = .false.
             ngrid = 3
-            call printargs((/1,1,1,1,0,0,1,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1/) == 1)
+            call printargs((/1,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,1,1,1,1,1,1/)==1)
             call initunit(a, b, c, d, Thot, Tcold)
         case default
             print *, 'Invalid sim type: "', trim(whichsim), '"'
@@ -71,6 +71,7 @@ contains
 
 subroutine parsecmdargs()
     integer :: i, eqsign, inplen
+    integer, parameter :: collfactor = 10
     character(128) :: input, arg, val
     character(130) :: charval
     
@@ -81,12 +82,13 @@ subroutine parsecmdargs()
     one = .false.
     mt  = .true.
     vol = .false.
-
+    
+    maxthrd = 0             !zero for no limit
     nemit = 10000
     ngrid = 0
     ntime = 0               !zero for steady
     maxscat = 1             !zero for time limit only
-    maxcoll = 10            !for single phonon simulation
+    maxcoll = collfactor    !for single phonon simulation
     
     tend = 100d-9
     
@@ -128,6 +130,8 @@ subroutine parsecmdargs()
                     read(val,*) mt
                 case ('vol')
                     read(val,*) vol
+                case ('maxthrd')
+                    read(val,*) maxthrd
                 case ('nemit')
                     read(val,*) nemit
                 case ('ngrid')
@@ -136,7 +140,7 @@ subroutine parsecmdargs()
                     read(val,*) ntime
                 case ('maxscat')
                     read(val,*) maxscat
-                    if (maxcoll == 10) maxcoll = 10*maxscat
+                    if (maxcoll == collfactor) maxcoll = collfactor*maxscat
                 case ('maxcoll')
                     read(val,*) maxcoll
                 case ('tend')
@@ -171,7 +175,7 @@ subroutine parsecmdargs()
 end subroutine parsecmdargs
 
 subroutine printargs(isused)
-    logical, intent(in) :: isused(22)
+    logical, intent(in) :: isused(23)
     
     if (isused(1))  write(*,'(A12,A)')      '   disp = ', trim(disp)
     if (isused(2))  write(*,'(A12,A)')      '  relax = ', trim(relax)
@@ -179,22 +183,23 @@ subroutine printargs(isused)
     if (isused(4))  write(*,'(A12,L2)')     '    one = ', one
     if (isused(5))  write(*,'(A12,L2)')     '     mt = ', mt
     if (isused(6))  write(*,'(A12,L2)')     '    vol = ', vol
-    if (isused(7))  write(*,'(A12,I11)')    '  nemit = ', nemit
-    if (isused(8))  write(*,'(A12,I11)')    '  ngrid = ', ngrid
-    if (isused(9))  write(*,'(A12,I11)')    '  ntime = ', ntime
-    if (isused(10)) write(*,'(A12,I11)')    'maxscat = ', maxscat
-    if (isused(11)) write(*,'(A12,I11)')    'maxcoll = ', maxcoll
-    if (isused(12)) write(*,'(A12,ES10.3)') '   tend = ', tend
-    if (isused(13)) write(*,'(A12,ES10.3)') ' length = ', length
-    if (isused(14)) write(*,'(A12,ES10.3)') '   side = ', side
-    if (isused(15)) write(*,'(A12,ES10.3)') '   wall = ', wall
-    if (isused(16)) write(*,'(A12,ES10.3)') '      a = ', a
-    if (isused(17)) write(*,'(A12,ES10.3)') '      b = ', b
-    if (isused(18)) write(*,'(A12,ES10.3)') '      c = ', c
-    if (isused(19)) write(*,'(A12,ES10.3)') '      d = ', d
-    if (isused(20)) write(*,'(A12,F10.3)')  '      T = ', T
-    if (isused(21)) write(*,'(A12,F10.3)')  '   Thot = ', Thot
-    if (isused(22)) write(*,'(A12,F10.3)')  '  Tcold = ', Tcold
+    if (isused(7))  write(*,'(A12,I11)')    'maxthrd = ', maxthrd
+    if (isused(8))  write(*,'(A12,I11)')    '  nemit = ', nemit
+    if (isused(9))  write(*,'(A12,I11)')    '  ngrid = ', ngrid
+    if (isused(10)) write(*,'(A12,I11)')    '  ntime = ', ntime
+    if (isused(11)) write(*,'(A12,I11)')    'maxscat = ', maxscat
+    if (isused(12)) write(*,'(A12,I11)')    'maxcoll = ', maxcoll
+    if (isused(13)) write(*,'(A12,ES10.3)') '   tend = ', tend
+    if (isused(14)) write(*,'(A12,ES10.3)') ' length = ', length
+    if (isused(15)) write(*,'(A12,ES10.3)') '   side = ', side
+    if (isused(16)) write(*,'(A12,ES10.3)') '   wall = ', wall
+    if (isused(17)) write(*,'(A12,ES10.3)') '      a = ', a
+    if (isused(18)) write(*,'(A12,ES10.3)') '      b = ', b
+    if (isused(19)) write(*,'(A12,ES10.3)') '      c = ', c
+    if (isused(20)) write(*,'(A12,ES10.3)') '      d = ', d
+    if (isused(21)) write(*,'(A12,F10.3)')  '      T = ', T
+    if (isused(22)) write(*,'(A12,F10.3)')  '   Thot = ', Thot
+    if (isused(23)) write(*,'(A12,F10.3)')  '  Tcold = ', Tcold
     write(*,*)
     
 end subroutine printargs

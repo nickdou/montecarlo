@@ -62,6 +62,7 @@ subroutine initomp(n)
 !$  if (present(n)) then
 !$      nthreads = min(nthreads, n)
 !$  end if
+!$  call omp_set_num_threads(nthreads)
 !$  print ('(A,I2,A)'), 'OMP enabled, ', nthreads, ' threads available'
 end subroutine
 
