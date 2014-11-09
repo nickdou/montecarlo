@@ -7,7 +7,8 @@ module domain
     
     private
     public  :: SPEC_BC, DIFF_BC, ISOT_BC, PERI_BC, boundary, &
-        settime, setgrid, initrecord, inittraj, appendtraj, gettraj, &
+        settime, setbounds, inbounds, setgrid, &
+        initrecord, inittraj, appendtraj, gettraj, &
         makebdry, makebdry_arr, setbdry, setbdrypair, &
         calculateemit, setvolumetric, getemit, getnemit, geteeff, &
         drawemittime, drawemitstate, updatestate, applybc, &
@@ -43,7 +44,7 @@ module domain
 !     logical :: gridflux = .false.
     logical :: volumetric = .false.
     real(8) :: tend, tstep, Eeff, gradT
-    real(8) :: flow(3), voldir(3), vollim(2), griddir(3) 
+    real(8) :: flow(3), voldir(3), vollim(2), griddir(3), bounds(2,3)
     integer :: ntime, ngrid, nbdry, ntraj, maxtraj
 !     type(axis) :: grid, vgen
 
@@ -94,6 +95,22 @@ subroutine settime(t, nt)
     tend = t
     ntime = nt
 end subroutine settime
+
+subroutine setbounds(arr)
+    real(8), intent(in) :: arr(6)
+    
+    bounds = reshape(arr, (/2,3/))
+    if (any(bounds(1,:) >= bounds(2,:))) then
+        print *, 'Error: setbounds: lower bounds >= upper bounds'
+        call exit
+    end if
+end subroutine setbounds
+
+logical pure function inbounds(pos)
+    real(8), intent(in) :: pos(3)
+    
+    inbounds = all(pos >= bounds(1,:) .and. pos <= bounds(2,:))
+end function inbounds
 
 subroutine setgrid_none(vol, gT)
     real(8), intent(in) :: vol, gT
@@ -560,8 +577,8 @@ subroutine recordgrid(cum_arr, sign, delta, coordold, coordnew)
     coordlo = max(min(coordold, coordnew), grid(0))
     coordhi = min(max(coordold, coordnew), grid(ngrid))
     dcoord = coordhi - coordlo
-    if (dcoord < 0d0) then
-        print *, 'Warning: recordgrid: dcoord = ', dcoord, ' < eps'
+    if (dcoord <= 0d0) then
+        print *, 'Warning: recordgrid: dcoord = ', dcoord, ' <= 0'
         print *, 'coordold, coordnew = ', coordold, coordnew
         print *, 'gridlo,   gridhi   = ', grid(0), grid(ngrid)
         print *, 'coordlo,  coordlo  = ', coordlo, coordhi

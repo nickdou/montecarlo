@@ -53,6 +53,8 @@ subroutine initisot(vol, ngrid, length, side, Thot, Tcold)
     yvec = (/0d0, side, 0d0/)
     zvec = (/0d0, 0d0, length/)
     corner = xvec + yvec + zvec
+    
+    call setbounds((/0d0, side, 0d0, side, 0d0, length/))
 
 !     grid = makeaxis((/0d0, 0d0, 1d0/), 0d0, length, ngrid)
 !     call setgrid(tend, ntime, grid)
@@ -107,6 +109,8 @@ subroutine initfilm(vol, ngrid, length, side, Thot, Tcold)
     yvec = (/0d0, side, 0d0/)
     zvec = (/0d0, 0d0, length/)
     corner = xvec + yvec + zvec
+    
+    call setbounds((/0d0, length, 0d0, side, 0d0, length/))
 
 !     grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ngrid)
 !     call setgrid(tend, ntime, grid)
@@ -154,7 +158,9 @@ subroutine inithollow(vol, ngrid, length, side, wall, Thot, Tcold)
     corner = xvec + yvec + zvec
     xwall = (/wall, 0d0, 0d0/)
     ywall = (/0d0, wall, 0d0/)
-
+    
+    call setbounds((/0d0, side, 0d0, side, 0d0, length/))
+    
 !     grid = makeaxis((/0d0, 1d0, 0d0/), 0d0, side, ngrid)
 !     call setgrid(tend, ntime, grid)
     call setgrid((/0d0, 1d0, 0d0/), 0d0, side, ngrid, product(corner) - product(corner - 2*xwall - 2*ywall), (Tcold - Thot)/length)
@@ -217,9 +223,12 @@ subroutine initunit(a, b, c, d, Thot, Tcold)
     print *, '       l = ', l
     
     if (any((/l-a-d, l-b-d/) <= eps)) then
-        print *, 'Error: initunit: Unphysical geometry'
+        print *, 'Error: initunit: unphysical geometry'
         call exit
     end if
+    
+    call setbounds((/-d, 2*a+d, 0d0, l, -l, l/))
+    
 !     grid = makeaxis((/0d0, 0d0, 1d0/), -l, l, 1) ! ngrid = 1
 !     call setgrid(tend, ntime, grid)
     volume(1) = 2*d*(a+b+d)*(l-a-d)
@@ -491,7 +500,7 @@ subroutine writeresults_file(one, maxcoll, ngrid, ntime, unit, filename, id)
     end if
     
     if (unit == 6) then
-        print *, 'Warning: writeresults: Cannot use unit 6'
+        print *, 'Warning: writeresults: cannot use unit 6'
         return
     end if
     

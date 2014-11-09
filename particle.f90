@@ -41,7 +41,7 @@ type(phonon) function emit() result(phn)
     phn%x0 = phn%x
     phn%alive = .true.
     
-    print ('(A1,3X,I3,7ES12.4)'), '*', phn%ind, phn%x, phn%dir, phn%tscat
+    print ('(A1,3X,I3,7ES12.4)'), 'e', phn%ind, phn%x, phn%dir, phn%tscat
 end function emit
 
 subroutine scatter(phn, nscat)
@@ -57,7 +57,7 @@ subroutine scatter(phn, nscat)
 !         phn%ind = 0
         nscat = nscat + 1
         
-        print ('(4X,I3,7ES12.4)'), phn%ind, phn%x, phn%dir, phn%tscat
+        print ('(A1,3X,I3,7ES12.4)'), 's', phn%ind, phn%x, phn%dir, phn%tscat
     end if
 end subroutine scatter
 
@@ -75,17 +75,23 @@ subroutine advect(phn, t)
     
     call updatestate(bc, ind, x, dir, v, deltat, t)
     call appendtraj(x)
+    if (.not. inbounds(x)) then
+        print *, 'Warning: advect: out of bounds, x = ', x
+    end if
     
     call recordtime(phn%sign, deltat, phn%x, x)
     call recorddisp(phn%sign, phn%x, x)
     call recordloc(phn%sign, t, deltat, phn%x, x)
     
-    print ('(A1,2I3,6ES12.4)'), '-', bc, ind, x, dir
+    print ('(A1,3X,I3,6ES12.4)'), 'a', ind, x, dir
     
     if (bc == PERI_BC) then
         call addcumdisp(phn%sign, ind)
         call applybc(bc, ind, x, dir)
         call appendtraj(x)
+        if (.not. inbounds(x)) then
+            print *, 'Warning: advect: out of bounds, x = ', x
+        end if
     else
         call applybc(bc, ind, x, dir)
     end if
@@ -95,7 +101,7 @@ subroutine advect(phn, t)
     phn%ind = ind
     phn%tscat = max(0d0, phn%tscat - deltat)
     
-    print ('(1X,2I3,7ES12.4)'), bc, ind, x, dir, phn%tscat
+    print ('(A1,2I3,7ES12.4)'), 'b', bc, ind, x, dir, phn%tscat
     
     if (all(abs(dir) < eps, 1)) then
         call remove(phn)

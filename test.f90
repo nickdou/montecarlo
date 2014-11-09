@@ -4,33 +4,38 @@ program test
     
     real(8) :: a, b
     character(64) :: cmd
-    integer :: i
-    integer, parameter :: l=0, u=4
-    real(8) :: array(l:u), array2(size(array))
+    real(8) :: xold(3), xnew(3), bounds(2,3)
+    
+    xold = (/1d0, 1d0, 1d0/)
+    xnew = (/1d0, 1d0, 1d0/)
+    bounds = reshape((/0d0, 2d0, 0d0, 2d0, 0d0, 2d0/), (/2, 3/))
+    
+    print *, xold
+    print *, bounds(1,:)
+    print *, bounds(2,:)
+    print *, all(xold >= bounds(1,:) .and. xold <= bounds(2,:))
+    
+    
+contains
+
+subroutine testminloc(l, u)
+    integer, intent(in) :: l, u
+    real(8) :: arr(l:u), arr1(size(arr))
     logical :: mask(l:u)
     
-    array = (/(dble(i), i=l,u)/)
-    array2 = array
+    call initrand(.false.)
+    call randnum(arr)
+    arr(l) = -1d0
+    arr1 = arr
     mask = .true.
-    mask(l) = .true.
-    print *, array
-    print *, array2
+    mask(l) = .false.
+    print *, arr
+    print *, arr1
     print *, mask
-    print *, minloc(array, 1, mask), minloc(array2, 1, mask)
-    print *, minloc(array, 1), minloc(array2, 1)
-    print *, minval(array, 1, mask)
-    
-!     open(2, file='test.txt', action='write', position='append')
-!     call writearr(reshape((/(dble(i), i=1,20)/),(/5,4/)), 2)
-!     close(2)
-!     call testsystem()
-    
-!     call testparse()
-
-!     print ('(A)'), timestamp()
-!     call starttimer()
-!     call testprogress()
-contains
+    print *, minloc(arr, 1, mask), minloc(arr1, 1, mask)
+    print *, minloc(arr, 1), minloc(arr1, 1)
+    print *, minval(arr, 1, mask)
+end subroutine testminloc
 
 subroutine writearr(arr, un)
     real(8), intent(in) :: arr(:,0:)
