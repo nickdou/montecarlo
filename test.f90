@@ -5,10 +5,24 @@ program test
     real(8) :: a, b
     character(64) :: cmd
     integer :: i
+    integer, parameter :: l=0, u=4
+    real(8) :: array(l:u), array2(size(array))
+    logical :: mask(l:u)
     
-    open(2, file='test.txt', action='write', position='append')
-    call writearr(reshape((/(dble(i), i=1,20)/),(/5,4/)), 2)
-    close(2)
+    array = (/(dble(i), i=l,u)/)
+    array2 = array
+    mask = .true.
+    mask(l) = .true.
+    print *, array
+    print *, array2
+    print *, mask
+    print *, minloc(array, 1, mask), minloc(array2, 1, mask)
+    print *, minloc(array, 1), minloc(array2, 1)
+    print *, minval(array, 1, mask)
+    
+!     open(2, file='test.txt', action='write', position='append')
+!     call writearr(reshape((/(dble(i), i=1,20)/),(/5,4/)), 2)
+!     close(2)
 !     call testsystem()
     
 !     call testparse()

@@ -43,11 +43,13 @@ program montecarlo
             call exit
     end select
     
-    call postinit(nemit)
+!     call postinit(nemit)
     
     if (one) then
+        call postinit(1)
         call simulateone(maxscat, maxcoll)
     else
+        call postinit(nemit)
         call simulate(maxscat)
         
 !         if (ngrid > 1) then

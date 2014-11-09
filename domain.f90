@@ -338,7 +338,7 @@ subroutine calculateemit(num)
         allocate( emit_arr(nbdry) )
     end if
     
-    emit_arr = nint( num*areatemp_arr/sumareatemp )
+    emit_arr = ceiling( num*areatemp_arr/sumareatemp )
     
     Eeff = (sumareatemp*tend/sum(emit_arr)) * getpseudoflux()
 end subroutine calculateemit
@@ -446,7 +446,7 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     real(8) :: xi(3), diri(3)
     logical :: pierced(0:nbdry)
     real(8) :: colli(2), coll(3, 0:nbdry), dt(0:nbdry)
-    integer :: i
+    integer :: i, indold
     integer :: threadi = 0
     
     dt(0) = min(deltat, tend - t)
@@ -464,7 +464,12 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     
     pierced(ind) = .false.
     pierced(0) = .true.
-    ind = minloc(dt, 1, pierced) - 1 !subtract one because of zero index
+    indold = ind
+    ind = minloc(dt(1:nbdry), 1, pierced(1:nbdry))
+    if (dt(ind) >= dt(0)) then
+        ind = 0
+    end if
+!     print('(1X,I3,7L2,7ES10.2)'), ind, pierced, dt1
     
     if (ind == 0) then
         bc = 0
@@ -473,13 +478,23 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     end if
     
     xi = coll(:,ind)
-    if (sum(xi - x) < eps) then
-        print *, 'Warning: updatestate: phonon did not move'
-        print *, '  initial pos = new pos = ', x
-        print *, '  boundary index = ', ind
-        call exit
-    end if
+!     if (abs(getcoord(xi) - getcoord(x)) < 0d0) then
+!     if (x(3) < grid(0) .or. x(3) > grid(ngrid) .or. &
+!         xi(3) < grid(0) .or. x(3) > grid(ngrid)) then
+!         print *, 'Warning: updatestate: phonon did not move'
+!         if (ntraj < 1000) then
+!             print *, 'traj = '
+!             print ('(3ES16.8)'), trajectory(:,0:ntraj), x
+!         else
+!             print *, 'xold = ', x
+!             print *, 'xnew = ', xi
+!         end if
+!         print *, 'coord = ', getcoord(xi), getcoord(x)
+!         print *, 'indold, ind  = ', indold, ind
+!         call exit
+!     end if
     x = xi
+    x = coll(:,ind)
     
     deltat = dt(ind)
     
@@ -545,8 +560,15 @@ subroutine recordgrid(cum_arr, sign, delta, coordold, coordnew)
     coordlo = max(min(coordold, coordnew), grid(0))
     coordhi = min(max(coordold, coordnew), grid(ngrid))
     dcoord = coordhi - coordlo
-    if (dcoord < eps) then
+    if (dcoord < 0d0) then
         print *, 'Warning: recordgrid: dcoord = ', dcoord, ' < eps'
+        print *, 'coordold, coordnew = ', coordold, coordnew
+        print *, 'gridlo,   gridhi   = ', grid(0), grid(ngrid)
+        print *, 'coordlo,  coordlo  = ', coordlo, coordhi
+        if (ntraj < 1000) then
+            print *, 'traj = '
+            print ('(3ES16.8)'), trajectory(:,0:ntraj)
+        end if
         call exit
     end if
     total = dcoord/abs(coordnew - coordold)*delta
