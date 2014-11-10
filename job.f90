@@ -13,15 +13,15 @@ program job
     
     c = (/'4 ', '8 ', '16'/)
     d = (/'0.01', '0.02', '0.04', '0.08'/)
-    iters = 2
+    iters = 10 
     
     logdir = ''
     do i = 1,3
         do j = 1,4
-            jobname = 'octet_unit_08_02_'// trim(c(i)) //'_0'// d(j)(3:4) //'_1e6_1e3_5d-7'
+            jobname = 'octet_unit_08_02_'// trim(c(i)) //'_0'// d(j)(3:4) //'_1e6_1e5_5d-6'
             exec = 'time ./run unit a=0.8d-6 b=0.2d-6 c='// &
                 trim(c(i)) //'d-6 d='// trim(d(j)) //&
-                'd-6 nemit=1000000 maxscat=1000 tend=5d-7'
+                'd-6 nemit=1000000 maxscat=100000 tend=5d-6'
             call writejob()
             print ('(A,/,A)'), trim(jobname), trim(exec)
             call system('qsub ' // filename)

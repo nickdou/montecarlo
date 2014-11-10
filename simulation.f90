@@ -405,6 +405,7 @@ end subroutine simulateone
 
 subroutine postsimulate()
     print *, '   nstop = ', getnstop()
+    print *, '    nesc = ', getnesc()
 end subroutine postsimulate
 
 ! subroutine writetemp(ngrid, ntime)

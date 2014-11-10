@@ -13,7 +13,8 @@ module domain
         calculateemit, setvolumetric, getemit, getnemit, geteeff, &
         drawemittime, drawemitstate, updatestate, applybc, &
         recordtime, recorddisp, recordloc, addcumdisp, &
-        getsteadytemp, gettranstemp, getflux, getgridflux, getcond, getnstop
+        getsteadytemp, gettranstemp, getflux, getgridflux, getcond, &
+        getnstop, getnesc
     
 !     type axis
 !         private
@@ -57,7 +58,7 @@ module domain
     real(8), allocatable :: cumdisp(:)
     real(8), allocatable :: gridtime_arr(:,:), griddisp_arr(:,:)
     integer, allocatable :: gridloc_arr(:,:,:)
-    integer, allocatable :: nstop(:)
+    integer, allocatable :: nstop(:), nesc(:)
 
 contains
 
@@ -186,6 +187,8 @@ subroutine initrecord(dir)
     
     allocate( nstop(0:nthreads-1) )
     nstop = 0
+    allocate( nesc(0:nthreads-1) )
+    nesc = 0
 end subroutine initrecord
 
 subroutine inittraj(num, pos)
@@ -201,6 +204,12 @@ end subroutine inittraj
 
 subroutine appendtraj(pos)
     real(8), intent(in) :: pos(3)
+    integer :: threadi = 0
+    
+    if (.not. inbounds(pos)) then
+!$      threadi = omp_get_thread_num()
+        nesc(threadi) = nesc(threadi) + 1
+    end if
     
     if (allocated(trajectory)) then
         if (ntraj < maxtraj) then
@@ -241,7 +250,7 @@ end function getxind
 integer pure function gettind(time) result(tind)
     real(8), intent(in) :: time
     
-    tind = min(ntime, max(0, floor(time/tstep)))
+    tind = min(max(floor(time/tstep), 0), ntime)
 end function gettind
 
 type(boundary) pure function makebdry(bc, origin, ivec, jvec, temp, tri) result(bdry)
@@ -463,7 +472,7 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     real(8) :: xi(3), diri(3)
     logical :: pierced(0:nbdry)
     real(8) :: colli(2), coll(3, 0:nbdry), dt(0:nbdry)
-    integer :: i, indold
+    integer :: i
     integer :: threadi = 0
     
     dt(0) = min(deltat, tend - t)
@@ -481,12 +490,10 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
     
     pierced(ind) = .false.
     pierced(0) = .true.
-    indold = ind
     ind = minloc(dt(1:nbdry), 1, pierced(1:nbdry))
     if (dt(ind) >= dt(0)) then
         ind = 0
     end if
-!     print('(1X,I3,7L2,7ES10.2)'), ind, pierced, dt1
     
     if (ind == 0) then
         bc = 0
@@ -494,7 +501,7 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
         bc = bdry_arr(ind)%bc
     end if
     
-    xi = coll(:,ind)
+!     xi = coll(:,ind)
 !     if (abs(getcoord(xi) - getcoord(x)) < 0d0) then
 !     if (x(3) < grid(0) .or. x(3) > grid(ngrid) .or. &
 !         xi(3) < grid(0) .or. x(3) > grid(ngrid)) then
@@ -510,7 +517,7 @@ subroutine updatestate(bc, ind, x, dir, v, deltat, t)
 !         print *, 'indold, ind  = ', indold, ind
 !         call exit
 !     end if
-    x = xi
+!     x = xi
     x = coll(:,ind)
     
     deltat = dt(ind)
@@ -574,19 +581,20 @@ subroutine recordgrid(cum_arr, sign, delta, coordold, coordnew)
 !$  threadi = omp_get_thread_num()
     
     pm = signtoint(sign)
-    coordlo = max(min(coordold, coordnew), grid(0))
-    coordhi = min(max(coordold, coordnew), grid(ngrid))
+    coordlo = min(max(min(coordold, coordnew), grid(0)), grid(ngrid))
+    coordhi = min(max(max(coordold, coordnew), grid(0)), grid(ngrid))
     dcoord = coordhi - coordlo
     if (dcoord <= 0d0) then
-        print *, 'Warning: recordgrid: dcoord = ', dcoord, ' <= 0'
-        print *, 'coordold, coordnew = ', coordold, coordnew
-        print *, 'gridlo,   gridhi   = ', grid(0), grid(ngrid)
-        print *, 'coordlo,  coordlo  = ', coordlo, coordhi
-        if (ntraj < 1000) then
-            print *, 'traj = '
-            print ('(3ES16.8)'), trajectory(:,0:ntraj)
-        end if
-        call exit
+!         print *, 'Warning: recordgrid: dcoord = ', dcoord, ' <= 0'
+!         print *, 'coordold, coordnew = ', coordold, coordnew
+!         print *, 'gridlo,   gridhi   = ', grid(0), grid(ngrid)
+!         print *, 'coordlo,  coordlo  = ', coordlo, coordhi
+!         if (ntraj < 1000) then
+!             print *, 'traj = '
+!             print ('(3ES16.8)'), trajectory(:,0:ntraj)
+!         end if
+!         call exit
+        return
     end if
     total = dcoord/abs(coordnew - coordold)*delta
     indlo = coordtoind(coordlo)
@@ -649,8 +657,8 @@ subroutine recordloc(sign, t, deltat, xold, xnew)
     integer :: pm, told, tnew, tind, xind
     integer :: threadi = 0
     
-!$  threadi = omp_get_thread_num()
     if (ntime /= 0 .and. ngrid /= 0) then
+!$      threadi = omp_get_thread_num()
         pm = signtoint(sign)
         
         told = gettind(t - deltat)
@@ -674,8 +682,8 @@ subroutine addcumdisp_real(sign, deltax)
     real(8), intent(in) :: deltax(3)
     integer :: pm, threadi = 0
     
-!$  threadi = omp_get_thread_num()
     if (ngrid == 0) then
+!$      threadi = omp_get_thread_num()
         pm = signtoint(sign)
         cumdisp(threadi) = cumdisp(threadi) + pm*dot_product(flow, deltax)
     end if
@@ -686,8 +694,8 @@ subroutine addcumdisp_int(sign, ind)
     integer, intent(in) :: ind
     integer :: pm, threadi = 0
     
-!$  threadi = omp_get_thread_num()
     if (ngrid == 0) then
+!$      threadi = omp_get_thread_num()
         pm = signtoint(sign)
         cumdisp(threadi) = cumdisp(threadi) - pm*dot_product(flow, bdry_arr(ind)%pairmv)
     end if
@@ -746,5 +754,9 @@ end function getcond
 integer pure function getnstop()
     getnstop = sum(nstop)
 end function getnstop
+
+integer pure function getnesc()
+    getnesc = sum(nesc)
+end function getnesc
 
 end module domain
